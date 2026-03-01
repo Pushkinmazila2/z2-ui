@@ -23,7 +23,7 @@ nproc=$(nproc)
 
 TARGETS="\
 aarch64-unknown-linux-musl \
-armv7-unknown-linux-musleabi \
+armv6-unknown-linux-musleabi \
 i586-unknown-linux-musl \
 x86_64-unknown-linux-musl \
 mips-unknown-linux-muslsf \
@@ -38,7 +38,7 @@ target_has_luajit()
 {
 	case "$1" in
 		aarch64-unknown-linux-musl| \
-		armv7-unknown-linux-musleabi| \
+		armv6-unknown-linux-musleabi| \
 		x86_64-unknown-linux-musl| \
 		mips-unknown-linux-muslsf| \
 		mips64-unknown-linux-musl| \
@@ -100,8 +100,8 @@ buildenv()
 	# not all archs support -static-pie. if does not support - it produces dynamic executable
 	# "-static -static-pie" causes segfaults
 	case $1 in
-		armv7-*)
-			CPU="-mcpu=cortex-a7 -mthumb -msoft-float"
+		armv6-*)
+			CPU="-mthumb -msoft-float"
 			CFLAGS="$CPU $CFLAGS"
 			;;
 		mips*)
@@ -273,7 +273,7 @@ translate_target()
 		aarch64-unknown-linux-musl)
 			ZBINTARGET=linux-arm64
 			;;
-		armv7-unknown-linux-musleabi)
+		armv6-unknown-linux-musleabi)
 			ZBINTARGET=linux-arm
 			;;
 		x86_64-unknown-linux-musl)
