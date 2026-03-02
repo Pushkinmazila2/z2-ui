@@ -331,7 +331,7 @@ bool IsHttpReply(const uint8_t *data, size_t len)
 		data[10]>='0' && data[10]<='9' &&
 		data[11]>='0' && data[11]<='9';
 }
-int HttpReplyCode(const uint8_t *data, size_t len)
+int HttpReplyCode(const uint8_t *data)
 {
 	return (data[9]-'0')*100 + (data[10]-'0')*10 + (data[11]-'0');
 }
@@ -370,7 +370,7 @@ bool HttpReplyLooksLikeDPIRedirect(const uint8_t *data, size_t len, const char *
 	
 	if (!host || !*host || !IsHttpReply(data, len)) return false;
 	
-	code = HttpReplyCode(data,len);
+	code = HttpReplyCode(data);
 	
 	if ((code!=302 && code!=307) || !HttpExtractHeader(data,len,"\nLocation:",loc,sizeof(loc))) return false;
 

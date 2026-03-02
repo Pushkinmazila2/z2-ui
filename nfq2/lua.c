@@ -1868,7 +1868,7 @@ static bool lua_reconstruct_ip6exthdr(lua_State *L, int idx, struct ip6_hdr *ip6
 {
 	LUA_STACK_GUARD_ENTER(L)
 	// proto = last header type
-	if (*len<sizeof(struct tcphdr)) return false;
+	if (*len<sizeof(struct ip6_hdr)) return false;
 
 	uint8_t *last_proto = &ip6->ip6_ctlun.ip6_un1.ip6_un1_nxt;
 	size_t filled = sizeof(struct ip6_hdr);

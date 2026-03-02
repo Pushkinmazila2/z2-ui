@@ -104,7 +104,7 @@ bool HttpExtractHeader(const uint8_t *data, size_t len, const char *header, char
 bool HttpExtractHost(const uint8_t *data, size_t len, char *host, size_t len_host);
 bool IsHttpReply(const uint8_t *data, size_t len);
 // must be pre-checked by IsHttpReply
-int HttpReplyCode(const uint8_t *data, size_t len);
+int HttpReplyCode(const uint8_t *data);
 // must be pre-checked by IsHttpReply
 bool HttpReplyLooksLikeDPIRedirect(const uint8_t *data, size_t len, const char *host);
 

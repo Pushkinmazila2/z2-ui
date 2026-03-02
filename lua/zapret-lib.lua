@@ -632,7 +632,7 @@ function tls_mod_shim(desync, blob, modlist, payload)
 		if not val then
 			error("tls_mod_shim: non-existent var '"..var.."'")
 		end
-		modlist = string.sub(modlist,1,p1+3)..val..string.sub(modlist,p2+1)
+		modlist = string.sub(modlist,1,p1+3)..tostring(val)..string.sub(modlist,p2+1)
 	end
 	return tls_mod(blob,modlist,payload)
 end
