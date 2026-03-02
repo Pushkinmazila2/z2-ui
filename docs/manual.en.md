@@ -3541,6 +3541,7 @@ function apply_execution_plan(desync, instance)
 
 Copies the instance identification and its arguments from an [execution plan](#execution_plan) `instance` into the desync object, thereby recreating the desync state as if the `instance` were called directly by C code.
 With one exception : apply_arg_prefix is not applied because args can refer a blob created by previous conditionally executed instances.
+
 The [execution plan](#execution_plan) is provided by the C function `execution_plan()` as an array of `instance` elements.
 
 ### verdict_aggregate

@@ -3720,6 +3720,7 @@ function apply_execution_plan(desync, instance)
 Копирует в desync идентификацию инстанса и его аргументы из элемента [execution plan](#execution_plan) `instance`,
 тем самым воссоздает состояние desync, как если бы `instance` был вызван напрямую C кодом.
 За одним исключением : apply_arg_prefix не применяется, поскольку может содержать несуществующие блоб, существование которого зависит от условного выполнения предыдущих истансов.
+
 [execution plan](#execution_plan) выдается C функцией `execution_plan()` как массив, элементами которого являются `instance`.
 
 ### verdict_aggregate
