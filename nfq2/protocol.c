@@ -1248,10 +1248,6 @@ struct range64
 	uint64_t offset,len;
 };
 #define MAX_DEFRAG_PIECES	128
-static int cmp_range64(const void * a, const void * b)
-{
-	return (((struct range64*)a)->offset < ((struct range64*)b)->offset) ? -1 : (((struct range64*)a)->offset > ((struct range64*)b)->offset) ? 1 : 0;
-}
 static bool intersected_u64(uint64_t l1, uint64_t r1, uint64_t l2, uint64_t r2)
 {
 	return l1>=l2 && l1<=r2 || r1>=l2 && r1<=r2 || l2>=l1 && l2<=r1 || r2>=l1 && r2<=r1;
