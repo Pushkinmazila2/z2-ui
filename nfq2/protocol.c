@@ -772,6 +772,8 @@ bool TLSMod_parse_list(const char *modlist, struct fake_tls_mod *tls_mod)
 }
 
 // payload is related to received tls client hello
+// if options cannot be applied because of the base fake - it's fatal. you should provide valid fake tls with required extensions.
+// if options cannot be applied because of the payload - it's non-fatal. some options may not be applied with warning.
 bool TLSMod(const struct fake_tls_mod *tls_mod, const uint8_t *payload, size_t payload_len, uint8_t *fake_tls, size_t *fake_tls_size, size_t fake_tls_buf_size)
 {
 	const uint8_t *ext;
@@ -839,7 +841,8 @@ bool TLSMod(const struct fake_tls_mod *tls_mod, const uint8_t *payload, size_t p
 		{
 			if (!slen)
 			{
-				DLOG_ERR("(nonfatal) cannot apply rndsni tls mod. tls has zero sized SNI\n");
+				DLOG_ERR("cannot apply rndsni tls mod. tls has zero sized SNI\n");
+				return false;
 			}
 			else
 			{
