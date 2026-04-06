@@ -38,7 +38,6 @@ Environment=INSTANCE=%i
 RestrictAddressFamilies=AF_NETLINK AF_UNIX AF_INET6 AF_INET
 
 LockPersonality=true
-MemoryDenyWriteExecute=true
 PrivateDevices=true
 PrivateMounts=true
 PrivateTmp=true
