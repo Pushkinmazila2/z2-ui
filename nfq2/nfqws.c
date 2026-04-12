@@ -258,6 +258,7 @@ void NoInterceptLoop(void)
 			TimerPoolRun(&params.timers, 0);
 		}
 	}
+	return;
 quit:
 	DLOG_CONDUP("quit requested\n");
 }
