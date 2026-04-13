@@ -34,7 +34,7 @@
     - [Passing blobs](#passing-blobs)
     - [In-profile filters](#in-profile-filters)
     - [Typical instance invocation scheme within a profile](#typical-instance-invocation-scheme-within-a-profile)
-  - [Lua function prototype](#lua-function-prototype)
+  - [Lua desync function prototype](#lua-desync-function-prototype)
     - [Structure of the desync table](#structure-of-the-desync-table)
     - [Dissect structure](#dissect-structure)
     - [Handling multi-packet payloads](#handling-multi-packet-payloads)
@@ -348,7 +348,7 @@ Once a profile is selected, what constitutes its action-oriented logic? Actions 
 
 [in-profile filters](#in-profile-filters) are also available. There are three types: the `--payload` filter (a list of payloads accepted by the instance) and two range filters, `--in-range` and `--out-range`, which define the specific byte range within the stream that the instance should process. Once defined, in-profile filters apply to all subsequent instances until they are redefined. The primary purpose of these filters is to minimize relatively slow Lua calls by offloading as much decision-making as possible to the C-side code.
 
-When a packet reaches a Lua instance, the function receives two [parameters](#lua-function-prototype): `ctx` and `desync`. `ctx` provides a context for interacting with specific C-side functions. The [`desync`](#structure-of-the-desync-table) parameter is a table containing various attributes of the packet being processed. Most notably, it includes the [dissect](#dissect-structure) (the `dis` subtable) and information from the conntrack entry (the [track subtable](#the-track-table-structure)). Numerous other parameters can be inspected by executing [`var_debug(desync)`](#var_debug) or by using the pre-built [`pktdebug`](#pktdebug) instance.
+When a packet reaches a Lua instance, the function receives two [parameters](#lua-desync-function-prototype): `ctx` and `desync`. `ctx` provides a context for interacting with specific C-side functions. The [`desync`](#structure-of-the-desync-table) parameter is a table containing various attributes of the packet being processed. Most notably, it includes the [dissect](#dissect-structure) (the `dis` subtable) and information from the conntrack entry (the [track subtable](#the-track-table-structure)). Numerous other parameters can be inspected by executing [`var_debug(desync)`](#var_debug) or by using the pre-built [`pktdebug`](#pktdebug) instance.
 
 During the [replay](#handling-multi-packet-payloads) of delayed packets, the Lua instance receives details such as the part number, the total number of parts in the original message, the current part's position, and [reasm](#handling-multi-packet-payloads) or [decrypt](#handling-multi-packet-payloads) data if available.
 
@@ -1097,7 +1097,7 @@ The specific mechanics of these functions are less important here; the focus is 
 - The `--payload` directive applies to the two instances following it.
 - The line `--lua-desync=fake:blob=fake_default_tls:badsum:strategy=1` calls the `fake` function with three arguments: `blob`, `badsum`, and `strategy`. The value for the `badsum` argument is an empty string.
 
-## Lua function prototype
+## Lua desync function prototype
 
 A standard Lua function uses the following prototype:
 
