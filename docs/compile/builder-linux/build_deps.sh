@@ -17,7 +17,7 @@ dl_deps()
 	exists_dir libnetfilter_queue-* ||
 		curl -Lo - https://www.netfilter.org/pub/libnetfilter_queue/libnetfilter_queue-1.0.5.tar.bz2 | tar -xj || exit 5
 	exists_dir zlib-* ||
-		curl -Lo - https://zlib.net/fossils/zlib-1.3.1.tar.gz | tar -xz || exit 5
+		curl -Lo - https://zlib.net/fossils/zlib-1.3.2.tar.gz | tar -xz || exit 5
 	exists_dir luajit2-* ||
 		curl -Lo - https://github.com/openresty/luajit2/archive/refs/tags/v${LUAJIT_RELEASE}.tar.gz | tar -xz || exit 5
 	exists_dir lua-* ||
