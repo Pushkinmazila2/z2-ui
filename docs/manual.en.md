@@ -1621,6 +1621,10 @@ Using timers, desync functions, and send functions, you can build a full-fledged
 The system should be designed asynchronously, using a state machine. Direct sleep delays is not the option, as they break the queue-based traffic processing scheme.
 While you're waiting, everything else will hang.
 
+In the `--intercept=0` mode, if there are timers, nfqws2 doesn't exit immediately, but calls the timers until there are none left.
+After this, the process terminates.
+
+
 ### Timer function prototype
 
 ```
