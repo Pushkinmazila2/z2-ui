@@ -195,7 +195,8 @@ EOF
 # Prepare nfqws2 options
 NFQWS_OPTS="--qnum=$NFQUEUE_NUM --lua-init=@/opt/zapret2/lua/zapret-lib.lua --lua-init=@/opt/zapret2/lua/zapret-antidpi.lua"
 
-if [ "$NFQWS2_ENABLE" = "1" ]; then
+# Check if custom strategy is provided
+if [ -n "$NFQWS2_OPT" ] && [ "${NFQWS2_ENABLE:-1}" = "1" ]; then
     log_info "Using custom NFQWS2_OPT from config"
     NFQWS_OPTS="$NFQWS_OPTS $NFQWS2_OPT"
 else
