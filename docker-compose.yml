@@ -5,8 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: zapret2-proxy
-    restart: unless-stopped
+    container_name: ${CONTAINER_NAME:-zapret2-proxy}
+    restart: ${RESTART_POLICY:-unless-stopped}
     
     # Required capabilities for iptables and network manipulation
     cap_add:
@@ -19,47 +19,61 @@ services:
       - net.ipv4.conf.all.route_localnet=1
     
     # Network mode
-    network_mode: bridge
+    network_mode: ${NETWORK_MODE:-bridge}
     
     ports:
-      - "1080:1080"  # SOCKS5 port
+      - "${SOCKS5_PORT:-1080}:${SOCKS5_PORT:-1080}"  # SOCKS5 port
     
     environment:
       # SOCKS5 configuration
-      - SOCKS5_PORT=1080
-      # - SOCKS5_USER=username  # Optional authentication
-      # - SOCKS5_PASS=password  # Optional authentication
+      - SOCKS5_PORT=${SOCKS5_PORT:-1080}
+      - SOCKS5_USER=${SOCKS5_USER}
+      - SOCKS5_PASS=${SOCKS5_PASS}
       
       # NFQUEUE configuration
-      - NFQUEUE_NUM=200
+      - NFQUEUE_NUM=${NFQUEUE_NUM:-200}
+      - DESYNC_MARK=${DESYNC_MARK:-0x40000000}
       
       # zapret2 configuration
-      - NFQWS2_ENABLE=1
-      - DISABLE_IPV6=1
+      - NFQWS2_ENABLE=${NFQWS2_ENABLE:-1}
+      - DISABLE_IPV6=${DISABLE_IPV6:-1}
+      - NFQWS2_PORTS_TCP=${NFQWS2_PORTS_TCP:-80,443}
+      - NFQWS2_PORTS_UDP=${NFQWS2_PORTS_UDP:-443}
+      - NFQWS2_OPT=${NFQWS2_OPT}
+      - MODE_FILTER=${MODE_FILTER:-none}
       
-      # Custom zapret config path (optional)
-      - ZAPRET_CONFIG=/opt/zapret2/config
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CURL_VERBOSE=${CURL_VERBOSE:-0}
+      
+      # User/Group
+      - WS_UID=${WS_UID:-1}
+      - WS_GID=${WS_GID:-3003}
+      
+      # Custom zapret config path
+      - ZAPRET_CONFIG=${ZAPRET_CONFIG:-/opt/zapret2/config}
+      - ZAPRET_BASE=${ZAPRET_BASE:-/opt/zapret2}
     
     volumes:
       # Mount custom config (optional)
-      - ./config:/opt/zapret2/config:ro
+      - ${CONFIG_PATH:-./config}:/opt/zapret2/config:ro
       
       # Mount custom hostlists (optional)
-      - ./lists:/opt/zapret2/lists:ro
+      - ${LISTS_PATH:-./lists}:/opt/zapret2/lists:ro
       
       # Mount custom lua scripts (optional)
-      # - ./custom-lua:/opt/zapret2/custom-lua:ro
+      - ${LUA_PATH:-./custom-lua}:/opt/zapret2/custom-lua:ro
       
       # Logs
-      - ./logs:/var/log/zapret2
+      - ${LOGS_PATH:-./logs}:/var/log/zapret2
     
     # Healthcheck
     healthcheck:
-      test: ["CMD", "nc -z 127.0.0.1 1080 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      test: ["CMD", "nc -z 127.0.0.1 ${SOCKS5_PORT:-1080} || exit 1"]
+      interval: ${HEALTHCHECK_INTERVAL:-30}s
+      timeout: ${HEALTHCHECK_TIMEOUT:-10}s
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-10}s
 
 networks:
   default:
