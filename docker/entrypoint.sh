@@ -234,18 +234,18 @@ log_debug "Creating proxy user"
 id -u proxyuser &>/dev/null || adduser -D -H -s /bin/false proxyuser
 
 # Setup iptables
-log_info "Setting up iptables rules"
+log_info "Setting up iptables rules (Global Mode)"
 iptables -t mangle -F
-iptables -F
+iptables -t mangle -X
 
-#MARK trafic to NFQUEUE from proxy
-iptables -t mangle -A OUTPUT -m owner --uid-owner proxyuser -j MARK --set-mark 0x1
+# 1. Пропускаем пакеты, которые УЖЕ помечены nfqws2 (чтобы не было вечного цикла)
+iptables -t mangle -A OUTPUT -m mark --mark 0x40000000/0x40000000 -j RETURN
 
-# Send MARK to NFQUEUE
-iptables -t mangle -A OUTPUT -m mark --mark 0x1 -p tcp -j NFQUEUE --queue-num $NFQUEUE_NUM --queue-bypass
-iptables -t mangle -A OUTPUT -m mark --mark 0x1 -p udp -j NFQUEUE --queue-num $NFQUEUE_NUM --queue-bypass
+# 2. Отправляем ВЕСЬ TCP (443) и UDP (443) в очередь
+iptables -t mangle -A OUTPUT -p tcp --dport 443 -j NFQUEUE --queue-num $NFQUEUE_NUM --queue-bypass
+iptables -t mangle -A OUTPUT -p udp --dport 443 -j NFQUEUE --queue-num $NFQUEUE_NUM --queue-bypass
 
-log_debug "iptables rules configured"
+log_debug "iptables: all port 443 traffic redirected to NFQUEUE"
 
 # Configure dante
 log_info "Configuring dante SOCKS5 server"
