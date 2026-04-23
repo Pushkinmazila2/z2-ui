@@ -56,7 +56,7 @@ services:
     
     volumes:
       # Mount config file (REQUIRED)
-      - ${CONFIG_PATH:-./config}:/opt/zapret2/config:ro
+      -./config:/opt/zapret2/config:ro
       
       # Mount custom hostlists (optional)
       - ${LISTS_PATH:-./lists}:/opt/zapret2/lists:ro

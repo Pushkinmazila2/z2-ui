@@ -197,21 +197,7 @@ EOF
 NFQWS_OPTS="--qnum=$NFQUEUE_NUM --lua-init=@/opt/zapret2/lua/zapret-lib.lua --lua-init=@/opt/zapret2/lua/zapret-antidpi.lua"
 
 # Validate strategy
-if [ -z "$NFQWS2_OPT" ]; then
-    log_error "✗ NFQWS2_OPT is not set!"
-    log_error "✗ Please define bypass strategy in config file"
-    log_error "✗ Example: NFQWS2_OPT='--filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=6'"
-    exit 1
-fi
-
-<<<<<<< HEAD
-if [ "${NFQWS2_ENABLE:-0}" != "1" ]; then
-    log_error "✗ NFQWS2_ENABLE is not set to 1!"
-    log_error "✗ Please set NFQWS2_ENABLE=1 in config file"
-    exit 1
-=======
-# Check if custom strategy is provided
-# Use simpler condition: if NFQWS2_OPT is not empty, use it
+# Оставьте только этот чистый блок:
 if [ -n "$NFQWS2_OPT" ]; then
     log_info "Using custom NFQWS2_OPT from config (length: ${#NFQWS2_OPT})"
     NFQWS_OPTS="$NFQWS2_OPT"
@@ -221,7 +207,13 @@ else
     NFQWS_OPTS="$NFQWS_OPTS --payload=http_req --lua-desync=fake:blob=fake_default_http:tcp_md5"
     NFQWS_OPTS="$NFQWS_OPTS --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=6"
     NFQWS_OPTS="$NFQWS_OPTS --lua-desync=multidisorder:pos=midsld"
->>>>>>> 91c1bc5e38dcbd6f42d324906292315b1340bf7f
+fi
+
+
+if [ "${NFQWS2_ENABLE:-0}" != "1" ]; then
+    log_error "✗ NFQWS2_ENABLE is not set to 1!"
+    log_error "✗ Please set NFQWS2_ENABLE=1 in config file"
+    exit 1
 fi
 
 # Show loaded strategy
