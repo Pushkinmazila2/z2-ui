@@ -193,37 +193,26 @@ socks pass {
 }
 EOF
 
-# Prepare nfqws2 options
-NFQWS_OPTS="--qnum=$NFQUEUE_NUM --lua-init=@/opt/zapret2/lua/zapret-lib.lua --lua-init=@/opt/zapret2/lua/zapret-antidpi.lua"
-
-# Validate strategy
-# Оставьте только этот чистый блок:
-if [ -n "$NFQWS2_OPT" ]; then
-    log_info "Using custom NFQWS2_OPT from config (length: ${#NFQWS2_OPT})"
-    NFQWS_OPTS="$NFQWS2_OPT"
-else
-    log_info "Using default DPI bypass strategy"
-    NFQWS_OPTS="$NFQWS_OPTS --filter-tcp=80,443 --filter-l7=http,tls --out-range=-d10"
-    NFQWS_OPTS="$NFQWS_OPTS --payload=http_req --lua-desync=fake:blob=fake_default_http:tcp_md5"
-    NFQWS_OPTS="$NFQWS_OPTS --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=6"
-    NFQWS_OPTS="$NFQWS_OPTS --lua-desync=multidisorder:pos=midsld"
-fi
-
-
+# Validate configuration
 if [ "${NFQWS2_ENABLE:-0}" != "1" ]; then
-    log_error "✗ NFQWS2_ENABLE is not set to 1!"
-    log_error "✗ Please set NFQWS2_ENABLE=1 in config file"
+    log_error "✗ NFQWS2_ENABLE is not set to 1 in config file"
     exit 1
 fi
 
-# Show loaded strategy
-log_info "✓ DPI bypass strategy loaded from config:"
-log_info "  Source: $ZAPRET_CONFIG"
-log_info "  Strategy length: ${#NFQWS2_OPT} characters"
-log_debug "  Full strategy: $NFQWS2_OPT"
+if [ -z "$NFQWS2_OPT" ]; then
+    log_error "✗ NFQWS2_OPT is not set in config file"
+    log_error "✗ Please define bypass strategy"
+    exit 1
+fi
 
-# Apply strategy
-NFQWS_OPTS="$NFQWS_OPTS $NFQWS2_OPT"
+# Prepare nfqws2 options (base + strategy from config)
+NFQWS_OPTS="--qnum=$NFQUEUE_NUM --lua-init=@/opt/zapret2/lua/zapret-lib.lua --lua-init=@/opt/zapret2/lua/zapret-antidpi.lua $NFQWS2_OPT"
+
+# Show loaded strategy
+log_info "✓ DPI bypass strategy loaded:"
+log_info "  Config: $ZAPRET_CONFIG"
+log_info "  Length: ${#NFQWS2_OPT} chars"
+log_debug "  Strategy: $NFQWS2_OPT"
 
 # Create named pipes for log processing
 mkfifo /tmp/dante.pipe /tmp/nfqws.pipe 2>/dev/null || true
