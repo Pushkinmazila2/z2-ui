@@ -65,6 +65,12 @@ COPY --from=builder /build/ip2net/ip2net /usr/local/bin/
 # Использование маски * предотвращает ошибку, если mdig не скомпилировался
 COPY --from=builder /build/mdig/mdig* /usr/local/bin/
 
+# Create symlinks for blockcheck2 compatibility
+RUN mkdir -p /opt/zapret2/nfq2 /opt/zapret2/mdig /opt/zapret2/ip2net && \
+    ln -s /usr/local/bin/nfqws2 /opt/zapret2/nfq2/nfqws2 && \
+    ln -s /usr/local/bin/ip2net /opt/zapret2/ip2net/ip2net && \
+    ln -s /usr/local/bin/mdig /opt/zapret2/mdig/mdig 2>/dev/null || true
+
 # Copy lua scripts and configs
 COPY lua/ /opt/zapret2/lua/
 COPY ipset/ /opt/zapret2/ipset/
