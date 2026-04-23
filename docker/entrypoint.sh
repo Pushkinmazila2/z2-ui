@@ -142,11 +142,15 @@ NFQUEUE_NUM=${NFQUEUE_NUM:-200}
 ZAPRET_CONFIG=${ZAPRET_CONFIG:-/opt/zapret2/config}
 
 # Load config
-if [ ! -f "$ZAPRET_CONFIG" ]; then
+if [ -f "$ZAPRET_CONFIG" ] && [ ! -d "$ZAPRET_CONFIG" ]; then
+    log_info "Loading custom configuration from $ZAPRET_CONFIG"
+    . "$ZAPRET_CONFIG"
+elif [ -f "/opt/zapret2/config.default" ]; then
     log_info "Using default configuration"
-    cp /opt/zapret2/config.default "$ZAPRET_CONFIG"
+    . "/opt/zapret2/config.default"
+else
+    log_warn "No configuration found, using environment variables only"
 fi
-. "$ZAPRET_CONFIG"
 
 # Create proxy user
 log_debug "Creating proxy user"

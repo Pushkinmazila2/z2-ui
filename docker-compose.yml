@@ -56,7 +56,8 @@ services:
     
     volumes:
       # Mount custom config (optional)
-      - ${CONFIG_PATH:-./config}:/opt/zapret2/config:ro
+      # Uncomment to use custom config file
+      # - ${CONFIG_PATH:-./config}:/opt/zapret2/config:ro
       
       # Mount custom hostlists (optional)
       - ${LISTS_PATH:-./lists}:/opt/zapret2/lists:ro
