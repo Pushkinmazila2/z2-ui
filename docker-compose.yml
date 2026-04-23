@@ -67,7 +67,7 @@ services:
     
     # Healthcheck
     healthcheck:
-      test: ["CMD", "nc -z 127.0.0.1 ${SOCKS5_PORT:-1080} || exit 1"]
+      test: ["CMD", "curl --proxy socks5h://127.0.0.1:${SOCKS5_PORT:-1080} https://google.com -v || exit 1"]
       interval: ${HEALTHCHECK_INTERVAL:-30}s
       timeout: ${HEALTHCHECK_TIMEOUT:-10}s
       retries: ${HEALTHCHECK_RETRIES:-3}
