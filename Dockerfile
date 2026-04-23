@@ -52,7 +52,12 @@ RUN apk add --no-cache \
     dante-server \
     iproute2 \
     ca-certificates \
-    libcap
+    libcap \
+    bind-tools \
+    nmap-ncat \
+    coreutils \
+    grep \
+    sed
 
 # Copy compiled binaries
 COPY --from=builder /build/nfq2/nfqws2 /usr/local/bin/
@@ -65,7 +70,12 @@ COPY lua/ /opt/zapret2/lua/
 COPY ipset/ /opt/zapret2/ipset/
 COPY files/ /opt/zapret2/files/
 COPY common/ /opt/zapret2/common/
+COPY blockcheck2.d/ /opt/zapret2/blockcheck2.d/
+COPY blockcheck2.sh /opt/zapret2/
 COPY config.default /opt/zapret2/
+
+# Make blockcheck2.sh executable
+RUN chmod +x /opt/zapret2/blockcheck2.sh
 
 # Create necessary directories
 RUN mkdir -p /opt/zapret2/tmp \
