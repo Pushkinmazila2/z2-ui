@@ -204,7 +204,7 @@ log_debug "NFQWS2_OPT first 100 chars: ${NFQWS2_OPT:0:100}"
 # Use simpler condition: if NFQWS2_OPT is not empty, use it
 if [ -n "$NFQWS2_OPT" ]; then
     log_info "Using custom NFQWS2_OPT from config (length: ${#NFQWS2_OPT})"
-    NFQWS_OPTS="$NFQWS_OPTS $NFQWS2_OPT"
+    NFQWS_OPTS="$NFQWS2_OPT"
 else
     log_info "Using default DPI bypass strategy"
     NFQWS_OPTS="$NFQWS_OPTS --filter-tcp=80,443 --filter-l7=http,tls --out-range=-d10"
