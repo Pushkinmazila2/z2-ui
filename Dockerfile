@@ -79,7 +79,6 @@ COPY common/ /opt/zapret2/common/
 COPY blockcheck2.d/ /opt/zapret2/blockcheck2.d/
 COPY blockcheck2.sh /opt/zapret2/
 COPY blockcheck2-progress.sh /opt/zapret2/
-COPY config.default /opt/zapret2/
 
 # Make scripts executable
 RUN chmod +x /opt/zapret2/blockcheck2.sh /opt/zapret2/blockcheck2-progress.sh
