@@ -1,8 +1,3 @@
-# 1. Обязательно включите движок
 NFQWS2_ENABLE=1
-
-# 2. Сама стратегия (переведенная с LUA на обычные параметры)
 NFQWS2_OPT="--filter-tcp=443 --dpi-desync=fake,split2 --dpi-desync-split-pos=sniext+1 --dpi-desync-repeats=6 --dpi-desync-fake-tls=0x00000000"
-
-# 3. Отключаем фильтр (так как в контейнере только YouTube)
 MODE_FILTER=none
