@@ -2,9 +2,9 @@
 # change values here
 # NFQWS2 configuration
 NFQWS2_ENABLE=1
-# Default strategy for nfqws2 (lua-based, single line)
+# Aggressive strategy for YouTube and Google services
 # Use blockcheck2 to find optimal strategy for your case
-NFQWS2_OPT="--filter-tcp=80 --filter-l7=http --payload=http_req --lua-desync=fake:blob=fake_default_http:tcp_md5 --lua-desync=multisplit:pos=method+2 --new --filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:tcp_seq=-10000 --lua-desync=multidisorder:pos=1,midsld --new --filter-udp=443 --filter-l7=quic --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6"
+NFQWS2_OPT="--filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com --lua-desync=multidisorder:pos=1,midsld --new --filter-udp=443 --filter-l7=quic --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=11"
 # Example strategies (uncomment to use):
 # YouTube aggressive strategy
 #NFQWS2_OPT="--filter-tcp=443 --filter-l7=tls --hostlist=/opt/zapret2/lists/youtube.txt --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com --lua-desync=multidisorder:pos=1,midsld"
