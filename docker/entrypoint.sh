@@ -141,15 +141,16 @@ SOCKS5_PORT=${SOCKS5_PORT:-1080}
 NFQUEUE_NUM=${NFQUEUE_NUM:-200}
 ZAPRET_CONFIG=${ZAPRET_CONFIG:-/opt/zapret2/config}
 
-# Load config
+# Load config - ONLY from mounted config file
 if [ -f "$ZAPRET_CONFIG" ] && [ ! -d "$ZAPRET_CONFIG" ]; then
-    log_info "Loading custom configuration from $ZAPRET_CONFIG"
+    log_info "✓ Loading configuration from: $ZAPRET_CONFIG"
     . "$ZAPRET_CONFIG"
-elif [ -f "/opt/zapret2/config.default" ]; then
-    log_info "Using default configuration"
-    . "/opt/zapret2/config.default"
+    log_info "✓ Config loaded successfully"
 else
-    log_warn "No configuration found, using environment variables only"
+    log_error "✗ Configuration file not found: $ZAPRET_CONFIG"
+    log_error "✗ Please mount config file or set NFQWS2_OPT environment variable"
+    log_error "✗ Container will NOT start without valid configuration"
+    exit 1
 fi
 
 # Create proxy user
@@ -195,11 +196,20 @@ EOF
 # Prepare nfqws2 options
 NFQWS_OPTS="--qnum=$NFQUEUE_NUM --lua-init=@/opt/zapret2/lua/zapret-lib.lua --lua-init=@/opt/zapret2/lua/zapret-antidpi.lua"
 
-# Debug: show loaded config
-log_debug "NFQWS2_ENABLE='${NFQWS2_ENABLE}'"
-log_debug "NFQWS2_OPT length: ${#NFQWS2_OPT}"
-log_debug "NFQWS2_OPT first 100 chars: ${NFQWS2_OPT:0:100}"
+# Validate strategy
+if [ -z "$NFQWS2_OPT" ]; then
+    log_error "✗ NFQWS2_OPT is not set!"
+    log_error "✗ Please define bypass strategy in config file"
+    log_error "✗ Example: NFQWS2_OPT='--filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=6'"
+    exit 1
+fi
 
+<<<<<<< HEAD
+if [ "${NFQWS2_ENABLE:-0}" != "1" ]; then
+    log_error "✗ NFQWS2_ENABLE is not set to 1!"
+    log_error "✗ Please set NFQWS2_ENABLE=1 in config file"
+    exit 1
+=======
 # Check if custom strategy is provided
 # Use simpler condition: if NFQWS2_OPT is not empty, use it
 if [ -n "$NFQWS2_OPT" ]; then
@@ -211,7 +221,17 @@ else
     NFQWS_OPTS="$NFQWS_OPTS --payload=http_req --lua-desync=fake:blob=fake_default_http:tcp_md5"
     NFQWS_OPTS="$NFQWS_OPTS --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=6"
     NFQWS_OPTS="$NFQWS_OPTS --lua-desync=multidisorder:pos=midsld"
+>>>>>>> 91c1bc5e38dcbd6f42d324906292315b1340bf7f
 fi
+
+# Show loaded strategy
+log_info "✓ DPI bypass strategy loaded from config:"
+log_info "  Source: $ZAPRET_CONFIG"
+log_info "  Strategy length: ${#NFQWS2_OPT} characters"
+log_debug "  Full strategy: $NFQWS2_OPT"
+
+# Apply strategy
+NFQWS_OPTS="$NFQWS_OPTS $NFQWS2_OPT"
 
 # Create named pipes for log processing
 mkfifo /tmp/dante.pipe /tmp/nfqws.pipe 2>/dev/null || true
