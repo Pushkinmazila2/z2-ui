@@ -49,8 +49,8 @@ docker run -it --rm \
     export BATCH=1
     export DOMAINS='$DOMAINS'
     
-    echo '* Запуск blockcheck2...'
-    /opt/zapret2/blockcheck2.sh
+    echo '* Запуск blockcheck2 с прогресс-баром...'
+    /opt/zapret2/blockcheck2-progress.sh
     
     echo
     echo '=== Тест завершен ==='

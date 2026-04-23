@@ -78,10 +78,11 @@ COPY files/ /opt/zapret2/files/
 COPY common/ /opt/zapret2/common/
 COPY blockcheck2.d/ /opt/zapret2/blockcheck2.d/
 COPY blockcheck2.sh /opt/zapret2/
+COPY blockcheck2-progress.sh /opt/zapret2/
 COPY config.default /opt/zapret2/
 
-# Make blockcheck2.sh executable
-RUN chmod +x /opt/zapret2/blockcheck2.sh
+# Make scripts executable
+RUN chmod +x /opt/zapret2/blockcheck2.sh /opt/zapret2/blockcheck2-progress.sh
 
 # Create necessary directories
 RUN mkdir -p /opt/zapret2/tmp \
