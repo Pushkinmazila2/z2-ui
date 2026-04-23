@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   zapret2:
     build:
@@ -56,7 +54,7 @@ services:
     
     volumes:
       # Mount config file (REQUIRED)
-      -./config:/opt/zapret2/config:ro
+      - ./config:/opt/zapret2/config:ro
       
       # Mount custom hostlists (optional)
       - ${LISTS_PATH:-./lists}:/opt/zapret2/lists:ro
