@@ -193,14 +193,17 @@ socks pass {
 EOF
 
 # Prepare nfqws2 options
-NFQWS_OPTS=" "
+NFQWS_OPTS="--qnum=$NFQUEUE_NUM --lua-init=@/opt/zapret2/lua/zapret-lib.lua --lua-init=@/opt/zapret2/lua/zapret-antidpi.lua"
 
 if [ "$NFQWS2_ENABLE" = "1" ]; then
     log_info "Using custom NFQWS2_OPT from config"
     NFQWS_OPTS="$NFQWS_OPTS $NFQWS2_OPT"
 else
     log_info "Using default DPI bypass strategy"
-    NFQWS_OPTS="$NFQWS_OPTS --filter-tcp=443 --dpi-desync=fake,split2 --dpi-desync-split-pos=sniext+1 --dpi-desync-repeats=6 --dpi-desync-fake-tls=0x00000000"
+    NFQWS_OPTS="$NFQWS_OPTS --filter-tcp=80,443 --filter-l7=http,tls --out-range=-d10"
+    NFQWS_OPTS="$NFQWS_OPTS --payload=http_req --lua-desync=fake:blob=fake_default_http:tcp_md5"
+    NFQWS_OPTS="$NFQWS_OPTS --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=6"
+    NFQWS_OPTS="$NFQWS_OPTS --lua-desync=multidisorder:pos=midsld"
 fi
 
 # Create named pipes for log processing
