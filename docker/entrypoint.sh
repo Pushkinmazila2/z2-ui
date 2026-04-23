@@ -238,12 +238,12 @@ log_info "Setting up iptables rules"
 iptables -t mangle -F
 iptables -F
 
-# Skip dante's own traffic
-iptables -t mangle -A OUTPUT -m owner --uid-owner proxyuser -j RETURN
+#MARK trafic to NFQUEUE from proxy
+iptables -t mangle -A OUTPUT -m owner --uid-owner proxyuser -j MARK --set-mark 0x1
 
-# Send everything else to NFQUEUE
-iptables -t mangle -A OUTPUT -p tcp -j NFQUEUE --queue-num $NFQUEUE_NUM --queue-bypass
-iptables -t mangle -A OUTPUT -p udp -j NFQUEUE --queue-num $NFQUEUE_NUM --queue-bypass
+# Send MARK to NFQUEUE
+iptables -t mangle -A OUTPUT -m mark --mark 0x1 -p tcp -j NFQUEUE --queue-num $NFQUEUE_NUM --queue-bypass
+iptables -t mangle -A OUTPUT -m mark --mark 0x1 -p udp -j NFQUEUE --queue-num $NFQUEUE_NUM --queue-bypass
 
 log_debug "iptables rules configured"
 
