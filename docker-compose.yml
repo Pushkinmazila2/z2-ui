@@ -38,11 +38,11 @@ services:
       - DISABLE_IPV6=1
       
       # Custom zapret config path (optional)
-      # - ZAPRET_CONFIG=/opt/zapret2/config
+      - ZAPRET_CONFIG=/opt/zapret2/config
     
     volumes:
       # Mount custom config (optional)
-      # - ./config:/opt/zapret2/config:ro
+      - ./config:/opt/zapret2/config:ro
       
       # Mount custom hostlists (optional)
       - ./lists:/opt/zapret2/lists:ro
