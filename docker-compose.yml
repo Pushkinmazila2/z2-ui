@@ -43,7 +43,7 @@ services:
       - MODE_FILTER=${MODE_FILTER:-none}
       
       # Logging
-      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
       - CURL_VERBOSE=${CURL_VERBOSE:-0}
       
       # User/Group

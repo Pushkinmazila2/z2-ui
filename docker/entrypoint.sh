@@ -195,9 +195,15 @@ EOF
 # Prepare nfqws2 options
 NFQWS_OPTS="--qnum=$NFQUEUE_NUM --lua-init=@/opt/zapret2/lua/zapret-lib.lua --lua-init=@/opt/zapret2/lua/zapret-antidpi.lua"
 
+# Debug: show loaded config
+log_debug "NFQWS2_ENABLE='${NFQWS2_ENABLE}'"
+log_debug "NFQWS2_OPT length: ${#NFQWS2_OPT}"
+log_debug "NFQWS2_OPT first 100 chars: ${NFQWS2_OPT:0:100}"
+
 # Check if custom strategy is provided
-if [ -n "$NFQWS2_OPT" ] && [ "${NFQWS2_ENABLE:-1}" = "1" ]; then
-    log_info "Using custom NFQWS2_OPT from config"
+# Use simpler condition: if NFQWS2_OPT is not empty, use it
+if [ -n "$NFQWS2_OPT" ]; then
+    log_info "Using custom NFQWS2_OPT from config (length: ${#NFQWS2_OPT})"
     NFQWS_OPTS="$NFQWS_OPTS $NFQWS2_OPT"
 else
     log_info "Using default DPI bypass strategy"
