@@ -235,15 +235,17 @@ id -u proxyuser &>/dev/null || adduser -D -H -s /bin/false proxyuser
 
 # Setup iptables
 log_info "Setting up iptables rules (Global Mode)"
+# Setup iptables
 iptables -t mangle -F
-iptables -t mangle -X
 
-# 1. Пропускаем пакеты, которые УЖЕ помечены nfqws2 (чтобы не было вечного цикла)
+# Исправляем контрольные суммы для исходящего трафика (ЧТОБЫ НЕ ВИСЛО)
+iptables -t mangle -A POSTROUTING -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+iptables -t mangle -A POSTROUTING -p tcp -j CHECKSUM --checksum-fill
+
+# Маркировка и очередь (как мы делали раньше)
 iptables -t mangle -A OUTPUT -m mark --mark 0x40000000/0x40000000 -j RETURN
-
-# 2. Отправляем ВЕСЬ TCP (443) и UDP (443) в очередь
 iptables -t mangle -A OUTPUT -p tcp --dport 443 -j NFQUEUE --queue-num $NFQUEUE_NUM --queue-bypass
-iptables -t mangle -A OUTPUT -p udp --dport 443 -j NFQUEUE --queue-num $NFQUEUE_NUM --queue-bypass
+
 
 log_debug "iptables: all port 443 traffic redirected to NFQUEUE"
 
