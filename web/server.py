@@ -136,12 +136,17 @@ class ZapretHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         
-        if self.path == '/api/apply':
-            self.api_apply_strategy()
-        elif self.path == '/api/save':
-            self.api_save_strategy()
-        else:
-            self.send_error(404)
+        try:
+            if self.path == '/api/apply':
+                self.api_apply_strategy()
+            elif self.path == '/api/save':
+                self.api_save_strategy()
+            elif self.path == '/api/delete':
+                self.api_delete_strategy()
+            else:
+                self.send_error(404)
+        except Exception as e:
+            self.send_json({'success': False, 'message': f'Server error: {str(e)}'})
     
     def serve_index(self):
         html = """<!DOCTYPE html>
@@ -157,19 +162,37 @@ class ZapretHandler(BaseHTTPRequestHandler):
         h1 { margin-bottom: 30px; font-size: 24px; font-weight: 600; }
         .status { background: #1a1a1a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 3px solid #4CAF50; }
         .status.loading { border-color: #FFC107; }
-        .strategies { display: grid; gap: 15px; }
-        .strategy { background: #1a1a1a; padding: 20px; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
+        .strategies { display: grid; gap: 15px; margin-bottom: 20px; }
+        .strategy { background: #1a1a1a; padding: 20px; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; position: relative; }
         .strategy:hover { background: #252525; }
         .strategy.active { border-color: #4CAF50; background: #1e2a1e; }
+        .strategy.selected { border-color: #2196F3; }
         .strategy h3 { font-size: 16px; margin-bottom: 8px; font-weight: 600; }
         .strategy p { font-size: 13px; color: #999; margin-bottom: 10px; }
         .strategy code { display: block; background: #0a0a0a; padding: 10px; border-radius: 4px; font-size: 11px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
-        .btn { background: #4CAF50; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; margin-top: 20px; }
+        .strategy .actions { position: absolute; top: 15px; right: 15px; display: none; gap: 8px; }
+        .strategy:hover .actions { display: flex; }
+        .strategy .actions button { background: #333; border: none; color: #fff; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .strategy .actions button:hover { background: #444; }
+        .strategy .actions .delete { background: #d32f2f; }
+        .strategy .actions .delete:hover { background: #b71c1c; }
+        .btn { background: #4CAF50; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; margin-right: 10px; }
         .btn:hover { background: #45a049; }
         .btn:disabled { background: #333; cursor: not-allowed; }
+        .btn.secondary { background: #2196F3; }
+        .btn.secondary:hover { background: #1976D2; }
         .message { padding: 12px; border-radius: 6px; margin-top: 15px; display: none; }
         .message.success { background: #1e4620; color: #4CAF50; display: block; }
         .message.error { background: #4a1a1a; color: #f44336; display: block; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; }
+        .modal.show { display: flex; align-items: center; justify-content: center; }
+        .modal-content { background: #1a1a1a; padding: 30px; border-radius: 8px; max-width: 600px; width: 90%; }
+        .modal-content h2 { margin-bottom: 20px; font-size: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 14px; color: #999; }
+        .form-group input, .form-group textarea { width: 100%; background: #0a0a0a; border: 1px solid #333; color: #e0e0e0; padding: 10px; border-radius: 4px; font-family: inherit; font-size: 14px; }
+        .form-group textarea { min-height: 100px; font-family: 'Courier New', monospace; font-size: 12px; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -182,9 +205,38 @@ class ZapretHandler(BaseHTTPRequestHandler):
         
         <div class="strategies" id="strategies"></div>
         
-        <button class="btn" id="applyBtn" onclick="applyStrategy()" disabled>Применить стратегию</button>
+        <div>
+            <button class="btn" id="applyBtn" onclick="applyStrategy()" disabled>Применить стратегию</button>
+            <button class="btn secondary" onclick="showAddModal()">+ Добавить стратегию</button>
+        </div>
         
         <div class="message" id="message"></div>
+    </div>
+    
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <h2>Добавить стратегию</h2>
+            <div class="form-group">
+                <label>Ключ (латиница, цифры, _)</label>
+                <input type="text" id="strategyKey" placeholder="my_custom_strategy">
+            </div>
+            <div class="form-group">
+                <label>Название</label>
+                <input type="text" id="strategyName" placeholder="Моя стратегия">
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <input type="text" id="strategyDesc" placeholder="Описание стратегии">
+            </div>
+            <div class="form-group">
+                <label>Конфигурация NFQWS2_OPT</label>
+                <textarea id="strategyConfig" placeholder="--filter-tcp=443 --lua-desync=..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="saveStrategy()">Сохранить</button>
+                <button class="btn secondary" onclick="closeModal()">Отмена</button>
+            </div>
+        </div>
     </div>
     
     <script>
@@ -214,6 +266,8 @@ class ZapretHandler(BaseHTTPRequestHandler):
             const container = document.getElementById('strategies');
             container.innerHTML = '';
             
+            const defaultKeys = ['youtube_aggressive', 'simple_fake', 'multisplit'];
+            
             for (const [key, strategy] of Object.entries(strategies)) {
                 const div = document.createElement('div');
                 div.className = 'strategy';
@@ -222,7 +276,13 @@ class ZapretHandler(BaseHTTPRequestHandler):
                 }
                 div.onclick = () => selectStrategy(key);
                 
+                const isCustom = !defaultKeys.includes(key);
+                const deleteBtn = isCustom ? `<button class="delete" onclick="deleteStrategy('${key}', event)">Удалить</button>` : '';
+                
                 div.innerHTML = `
+                    <div class="actions">
+                        ${deleteBtn}
+                    </div>
                     <h3>${strategy.name}</h3>
                     <p>${strategy.description}</p>
                     <code>${strategy.config}</code>
@@ -235,9 +295,81 @@ class ZapretHandler(BaseHTTPRequestHandler):
         function selectStrategy(key) {
             selectedStrategy = key;
             document.querySelectorAll('.strategy').forEach(el => {
-                el.style.borderColor = el.querySelector('h3').textContent === strategies[key].name ? '#2196F3' : 'transparent';
+                el.classList.remove('selected');
             });
+            event.currentTarget.classList.add('selected');
             document.getElementById('applyBtn').disabled = false;
+        }
+        
+        function showAddModal() {
+            document.getElementById('addModal').classList.add('show');
+        }
+        
+        function closeModal() {
+            document.getElementById('addModal').classList.remove('show');
+            document.getElementById('strategyKey').value = '';
+            document.getElementById('strategyName').value = '';
+            document.getElementById('strategyDesc').value = '';
+            document.getElementById('strategyConfig').value = '';
+        }
+        
+        async function saveStrategy() {
+            const key = document.getElementById('strategyKey').value.trim();
+            const name = document.getElementById('strategyName').value.trim();
+            const description = document.getElementById('strategyDesc').value.trim();
+            const config = document.getElementById('strategyConfig').value.trim();
+            
+            if (!key || !name || !config) {
+                showMessage('Заполните все обязательные поля', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key, name, description, config })
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    showMessage('Стратегия сохранена', 'success');
+                    closeModal();
+                    loadData();
+                } else {
+                    showMessage('Ошибка: ' + data.message, 'error');
+                }
+            } catch (e) {
+                showMessage('Ошибка сохранения', 'error');
+            }
+        }
+        
+        async function deleteStrategy(key, event) {
+            event.stopPropagation();
+            
+            if (!confirm('Удалить стратегию "' + strategies[key].name + '"?')) {
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key })
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    showMessage('Стратегия удалена', 'success');
+                    loadData();
+                } else {
+                    showMessage('Ошибка: ' + data.message, 'error');
+                }
+            } catch (e) {
+                showMessage('Ошибка удаления', 'error');
+            }
         }
         
         function updateCurrentStatus() {
@@ -304,25 +436,83 @@ class ZapretHandler(BaseHTTPRequestHandler):
         self.send_json({'config': current})
     
     def api_apply_strategy(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        data = json.loads(post_data.decode('utf-8'))
-        
-        strategy_key = data.get('strategy')
-        strategies = load_strategies()
-        
-        if strategy_key not in strategies:
-            self.send_json({'success': False, 'message': 'Стратегия не найдена'})
-            return
-        
-        strategy_config = strategies[strategy_key]['config']
-        
-        if not set_strategy(strategy_config):
-            self.send_json({'success': False, 'message': 'Не удалось обновить конфиг'})
-            return
-        
-        success, message = restart_service()
-        self.send_json({'success': success, 'message': message})
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length == 0:
+                self.send_json({'success': False, 'message': 'Empty request'})
+                return
+                
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+            
+            strategy_key = data.get('strategy')
+            strategies = load_strategies()
+            
+            if strategy_key not in strategies:
+                self.send_json({'success': False, 'message': 'Стратегия не найдена'})
+                return
+            
+            strategy_config = strategies[strategy_key]['config']
+            
+            if not set_strategy(strategy_config):
+                self.send_json({'success': False, 'message': 'Не удалось обновить конфиг'})
+                return
+            
+            success, message = restart_service()
+            self.send_json({'success': success, 'message': message})
+        except Exception as e:
+            self.send_json({'success': False, 'message': f'Error: {str(e)}'})
+    
+    def api_save_strategy(self):
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+            
+            strategy_key = data.get('key', '').strip()
+            strategy_name = data.get('name', '').strip()
+            strategy_desc = data.get('description', '').strip()
+            strategy_config = data.get('config', '').strip()
+            
+            if not strategy_key or not strategy_name or not strategy_config:
+                self.send_json({'success': False, 'message': 'Заполните все поля'})
+                return
+            
+            # Validate key format
+            if not strategy_key.replace('_', '').isalnum():
+                self.send_json({'success': False, 'message': 'Ключ может содержать только буквы, цифры и _'})
+                return
+            
+            strategies = load_strategies()
+            strategies[strategy_key] = {
+                'name': strategy_name,
+                'description': strategy_desc,
+                'config': strategy_config
+            }
+            
+            save_strategies(strategies)
+            self.send_json({'success': True, 'message': 'Стратегия сохранена'})
+        except Exception as e:
+            self.send_json({'success': False, 'message': f'Error: {str(e)}'})
+    
+    def api_delete_strategy(self):
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+            
+            strategy_key = data.get('key')
+            strategies = load_strategies()
+            
+            if strategy_key not in strategies:
+                self.send_json({'success': False, 'message': 'Стратегия не найдена'})
+                return
+            
+            del strategies[strategy_key]
+            save_strategies(strategies)
+            self.send_json({'success': True, 'message': 'Стратегия удалена'})
+        except Exception as e:
+            self.send_json({'success': False, 'message': f'Error: {str(e)}'})
     
     def send_json(self, data):
         self.send_response(200)
