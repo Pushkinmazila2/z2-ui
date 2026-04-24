@@ -57,7 +57,9 @@ RUN apk add --no-cache \
     nmap-ncat \
     coreutils \
     grep \
-    sed
+    sed \
+    python3 \
+    py3-pip
 
 # Copy compiled binaries
 COPY --from=builder /build/nfq2/nfqws2 /usr/local/bin/
@@ -80,6 +82,10 @@ COPY blockcheck2.d/ /opt/zapret2/blockcheck2.d/
 COPY blockcheck2.sh /opt/zapret2/
 COPY blockcheck2-progress.sh /opt/zapret2/
 
+# Copy web panel
+COPY web/ /opt/zapret2/web/
+RUN chmod +x /opt/zapret2/web/server.py /opt/zapret2/web/change_password.py
+
 # Make scripts executable
 RUN chmod +x /opt/zapret2/blockcheck2.sh /opt/zapret2/blockcheck2-progress.sh
 
@@ -92,8 +98,8 @@ RUN mkdir -p /opt/zapret2/tmp \
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Expose SOCKS5 port
-EXPOSE 1080
+# Expose SOCKS5 and Web UI ports
+EXPOSE 1080 8088
 
 # Set working directory
 WORKDIR /opt/zapret2

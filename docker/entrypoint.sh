@@ -319,6 +319,12 @@ log_debug "nfqws2 options: $NFQWS_OPTS"
 ) &
 NFQWS_PID=$!
 
+# Start web control panel
+WEB_PORT=${WEB_PORT:-8088}
+log_info "Starting Web Control Panel on port $WEB_PORT"
+python3 /opt/zapret2/web/server.py &
+WEB_PID=$!
+
 # Statistics function
 print_stats() {
     while true; do
@@ -344,13 +350,14 @@ if [ "$LOG_LEVEL" = "debug" ]; then
 fi
 
 # Graceful shutdown
-trap 'log_info "Shutting down..."; kill $SOCKS_PID $NFQWS_PID $STATS_PID 2>/dev/null; exit 0' SIGTERM SIGINT
+trap 'log_info "Shutting down..."; kill $SOCKS_PID $NFQWS_PID $WEB_PID $STATS_PID 2>/dev/null; exit 0' SIGTERM SIGINT
 
 log_info "✓ zapret2 is ready!"
 log_info "  SOCKS5: 0.0.0.0:$SOCKS5_PORT"
+log_info "  Web UI: http://0.0.0.0:$WEB_PORT (admin/zapret)"
 log_info "  NFQUEUE: $NFQUEUE_NUM"
 log_info "  Log level: $LOG_LEVEL"
 log_info "  Detailed packet logs: $([ "$LOG_LEVEL" = "debug" ] && echo "ENABLED" || echo "DISABLED")"
 
 # Wait for processes
-wait $SOCKS_PID $NFQWS_PID
+wait $SOCKS_PID $NFQWS_PID $WEB_PID

@@ -21,6 +21,7 @@ services:
     
     ports:
       - "${SOCKS5_PORT:-1080}:${SOCKS5_PORT:-1080}"  # SOCKS5 port
+      - "${WEB_PORT:-8088}:8088"  # Web Control Panel
     
     environment:
       # SOCKS5 configuration

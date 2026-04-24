@@ -1,0 +1,14 @@
+[Unit]
+Description=Zapret2 Web Control Panel
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/zapret2/web/server.py
+Restart=on-failure
+RestartSec=5
+User=root
+WorkingDirectory=/opt/zapret2/web
+
+[Install]
+WantedBy=multi-user.target
