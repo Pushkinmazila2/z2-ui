@@ -106,11 +106,22 @@ def set_strategy(strategy_config):
         return False
 
 def restart_service():
-    """Restart zapret2 service (Docker mode)"""
-    # In Docker, we need to restart the container or send signal to processes
-    # For now, just return success - user needs to restart container manually
-    # Or we can implement process restart via supervisord/s6
-    return True, "Конфиг обновлен. Перезапустите контейнер: docker restart zapret2-proxy"
+    """Restart nfqws2 process inside container"""
+    log_message('Attempting to restart nfqws2 process')
+    try:
+        # Find and kill nfqws2 process
+        result = subprocess.run(['pkill', '-9', 'nfqws2'], capture_output=True)
+        log_message(f'Killed nfqws2 process (exit code: {result.returncode})')
+        
+        # Wait a bit for process to die
+        time.sleep(1)
+        
+        # The entrypoint.sh will automatically restart it
+        log_message('nfqws2 will be restarted by entrypoint.sh')
+        return True, "Служба перезапускается (займет 2-3 секунды)"
+    except Exception as e:
+        log_message(f'Failed to restart service: {str(e)}', 'ERROR')
+        return False, f"Ошибка перезапуска: {str(e)}"
 
 def check_auth(auth_header):
     """Check HTTP Basic Auth"""

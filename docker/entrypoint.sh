@@ -289,7 +289,8 @@ if [ -z "$NFQWS2_OPT" ]; then
 fi
 
 # Prepare nfqws2 options (base + strategy from config)
-NFQWS_OPTS="--qnum=$NFQUEUE_NUM --lua-init=@/opt/zapret2/lua/zapret-lib.lua --lua-init=@/opt/zapret2/lua/zapret-antidpi.lua $NFQWS2_OPT"
+# Add --queue-bypass to prevent blocking if nfqws2 fails
+NFQWS_OPTS="--qnum=$NFQUEUE_NUM --queue-bypass --lua-init=@/opt/zapret2/lua/zapret-lib.lua --lua-init=@/opt/zapret2/lua/zapret-antidpi.lua $NFQWS2_OPT"
 
 # Show loaded strategy
 log_info "✓ DPI bypass strategy loaded:"
@@ -309,15 +310,54 @@ log_info "Starting dante SOCKS5 server on port $SOCKS5_PORT"
 ) &
 SOCKS_PID=$!
 
-# Start nfqws2 with log processing
-log_info "Starting nfqws2 on queue $NFQUEUE_NUM"
-log_debug "nfqws2 options: $NFQWS_OPTS"
-(
-    /usr/local/bin/nfqws2 $NFQWS_OPTS 2>&1 | while IFS= read -r line; do
-        process_nfqws_log "$line"
+# Function to start nfqws2 with auto-restart
+start_nfqws2() {
+    while true; do
+        log_info "Starting nfqws2 on queue $NFQUEUE_NUM"
+        log_info "Strategy: ${NFQWS2_OPT:0:100}..."
+        
+        if [ "$LOG_LEVEL" = "debug" ]; then
+            log_debug "Full nfqws2 command: /usr/local/bin/nfqws2 $NFQWS_OPTS"
+        fi
+        
+        /usr/local/bin/nfqws2 $NFQWS_OPTS 2>&1 | while IFS= read -r line; do
+            process_nfqws_log "$line"
+        done
+        
+        EXIT_CODE=$?
+        log_warn "⚠️  nfqws2 exited with code $EXIT_CODE, restarting in 2 seconds..."
+        sleep 2
     done
-) &
+}
+
+# Verify nfqws2 binary exists and is executable
+if [ ! -x "/usr/local/bin/nfqws2" ]; then
+    log_error "nfqws2 binary not found or not executable!"
+    exit 1
+fi
+
+# Test nfqws2 can start (quick check)
+log_info "Testing nfqws2 binary..."
+if /usr/local/bin/nfqws2 --help >/dev/null 2>&1; then
+    log_info "✓ nfqws2 binary is working"
+else
+    log_error "✗ nfqws2 binary test failed"
+    exit 1
+fi
+
+# Start nfqws2 with auto-restart in background
+start_nfqws2 &
 NFQWS_PID=$!
+
+# Give nfqws2 a moment to start
+sleep 1
+
+# Check if nfqws2 is running
+if ps aux | grep -v grep | grep nfqws2 >/dev/null; then
+    log_info "✓ nfqws2 process started successfully"
+else
+    log_error "✗ nfqws2 failed to start"
+fi
 
 # Start web control panel
 WEB_PORT=${WEB_PORT:-8088}
