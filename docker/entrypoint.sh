@@ -217,16 +217,32 @@ SOCKS5_PORT=${SOCKS5_PORT:-1080}
 NFQUEUE_NUM=${NFQUEUE_NUM:-200}
 ZAPRET_CONFIG=${ZAPRET_CONFIG:-/opt/zapret2/config}
 
-# Load config - ONLY from mounted config file
+# Load config - create default if not exists
 if [ -f "$ZAPRET_CONFIG" ] && [ ! -d "$ZAPRET_CONFIG" ]; then
     log_info "✓ Loading configuration from: $ZAPRET_CONFIG"
     . "$ZAPRET_CONFIG"
     log_info "✓ Config loaded successfully"
 else
-    log_error "✗ Configuration file not found: $ZAPRET_CONFIG"
-    log_error "✗ Please mount config file or set NFQWS2_OPT environment variable"
-    log_error "✗ Container will NOT start without valid configuration"
-    exit 1
+    log_warn "⚠️  Configuration file not found: $ZAPRET_CONFIG"
+    log_info "Creating default config file..."
+    
+    # Create default config
+    cat > "$ZAPRET_CONFIG" <<'EOF'
+# Zapret2 Configuration
+# Edit via Web UI at http://localhost:8088
+
+NFQWS2_ENABLE="1"
+
+# Default simple strategy (will be updated via Web UI)
+NFQWS2_OPT="--filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:repeats=2 --lua-desync=multisplit:pos=1 --bind-fix4"
+
+MODE_FILTER="none"
+DISABLE_IPV6="1"
+EOF
+    
+    . "$ZAPRET_CONFIG"
+    log_info "✓ Default config created and loaded"
+    log_info "📝 Configure strategies via Web UI: http://localhost:8088"
 fi
 
 # Create proxy user
@@ -278,14 +294,14 @@ EOF
 
 # Validate configuration
 if [ "${NFQWS2_ENABLE:-0}" != "1" ]; then
-    log_error "✗ NFQWS2_ENABLE is not set to 1 in config file"
-    exit 1
+    log_warn "⚠️  NFQWS2_ENABLE is not set to 1, enabling by default"
+    NFQWS2_ENABLE="1"
 fi
 
 if [ -z "$NFQWS2_OPT" ]; then
-    log_error "✗ NFQWS2_OPT is not set in config file"
-    log_error "✗ Please define bypass strategy"
-    exit 1
+    log_warn "⚠️  NFQWS2_OPT is not set, using minimal bypass strategy"
+    NFQWS2_OPT="--filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:repeats=2"
+    log_info "📝 Configure better strategy via Web UI: http://localhost:8088"
 fi
 
 # Prepare nfqws2 options (base + strategy from config)
@@ -333,16 +349,10 @@ start_nfqws2() {
 # Verify nfqws2 binary exists and is executable
 if [ ! -x "/usr/local/bin/nfqws2" ]; then
     log_error "nfqws2 binary not found or not executable!"
-    exit 1
-fi
-
-# Test nfqws2 can start (quick check)
-log_info "Testing nfqws2 binary..."
-if /usr/local/bin/nfqws2 --help >/dev/null 2>&1; then
-    log_info "✓ nfqws2 binary is working"
+    log_error "Container will run in SOCKS5-only mode (no DPI bypass)"
+    NFQWS2_ENABLE="0"
 else
-    log_error "✗ nfqws2 binary test failed"
-    exit 1
+    log_info "✓ nfqws2 binary found"
 fi
 
 # Start nfqws2 with auto-restart in background

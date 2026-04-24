@@ -54,7 +54,7 @@ services:
       - ZAPRET_BASE=${ZAPRET_BASE:-/opt/zapret2}
     
     volumes:
-      # Mount config file (REQUIRED) - writable for web UI
+      # Mount config file (optional, will be created if missing) - writable for web UI
       - ./config:/opt/zapret2/config:rw
       
       # Mount custom hostlists (optional)

@@ -61,13 +61,21 @@ def save_strategies(strategies):
 def get_current_strategy():
     """Read current NFQWS2_OPT from config"""
     if not os.path.exists(CONFIG_FILE):
+        log_message(f'Config file not found: {CONFIG_FILE}', 'WARN')
         return None
     
-    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-        for line in f:
-            if line.startswith('NFQWS2_OPT='):
-                return line.split('=', 1)[1].strip().strip('"')
-    return None
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.startswith('NFQWS2_OPT='):
+                    config = line.split('=', 1)[1].strip().strip('"')
+                    log_message(f'Current strategy loaded ({len(config)} chars)')
+                    return config
+        log_message('NFQWS2_OPT not found in config', 'WARN')
+        return None
+    except Exception as e:
+        log_message(f'Error reading config: {str(e)}', 'ERROR')
+        return None
 
 def log_message(msg, level='INFO'):
     """Log message to buffer and stdout"""
@@ -83,21 +91,41 @@ def set_strategy(strategy_config):
     """Update config file with new strategy"""
     log_message(f'Updating config file: {CONFIG_FILE}')
     
+    # Create config if it doesn't exist
     if not os.path.exists(CONFIG_FILE):
-        log_message(f'Config file not found: {CONFIG_FILE}', 'ERROR')
-        return False
+        log_message('Config file not found, creating new one')
+        try:
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+                f.write('# Zapret2 Configuration\n')
+                f.write('# Managed by Web UI\n\n')
+                f.write('NFQWS2_ENABLE="1"\n')
+                f.write(f'NFQWS2_OPT="{strategy_config}"\n')
+                f.write('MODE_FILTER="none"\n')
+                f.write('DISABLE_IPV6="1"\n')
+            log_message('Config file created successfully')
+            return True
+        except Exception as e:
+            log_message(f'Failed to create config: {str(e)}', 'ERROR')
+            return False
     
     try:
         with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         
+        found = False
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             for line in lines:
                 if line.startswith('NFQWS2_OPT='):
                     f.write(f'NFQWS2_OPT="{strategy_config}"\n')
                     log_message('Strategy updated in config')
+                    found = True
                 else:
                     f.write(line)
+            
+            # If NFQWS2_OPT wasn't found, add it
+            if not found:
+                f.write(f'\nNFQWS2_OPT="{strategy_config}"\n')
+                log_message('NFQWS2_OPT added to config')
         
         log_message('Config file saved successfully')
         return True
@@ -438,8 +466,17 @@ class ZapretHandler(BaseHTTPRequestHandler):
         
         function updateCurrentStatus() {
             const currentEl = document.getElementById('current');
+            const statusDiv = document.getElementById('status');
+            
+            if (!currentConfig) {
+                currentEl.textContent = '⚠️ Не настроено (выберите стратегию)';
+                statusDiv.style.borderColor = '#FFC107';
+                return;
+            }
+            
             const matchingStrategy = Object.values(strategies).find(s => s.config === currentConfig);
             currentEl.textContent = matchingStrategy ? matchingStrategy.name : 'Пользовательская конфигурация';
+            statusDiv.style.borderColor = '#4CAF50';
         }
         
         async function applyStrategy() {
