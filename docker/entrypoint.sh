@@ -328,21 +328,38 @@ SOCKS_PID=$!
 
 # Function to start nfqws2 with auto-restart
 start_nfqws2() {
+    local restart_count=0
     while true; do
-        log_info "Starting nfqws2 on queue $NFQUEUE_NUM"
+        log_info "Starting nfqws2 on queue $NFQUEUE_NUM (attempt $((restart_count+1)))"
         log_info "Strategy: ${NFQWS2_OPT:0:100}..."
         
         if [ "$LOG_LEVEL" = "debug" ]; then
-            log_debug "Full nfqws2 command: /usr/local/bin/nfqws2 $NFQWS_OPTS"
+            log_debug "Command: /usr/local/bin/nfqws2 $NFQWS_OPTS"
         fi
         
+        # Run nfqws2 and filter out help text
         /usr/local/bin/nfqws2 $NFQWS_OPTS 2>&1 | while IFS= read -r line; do
+            # Skip help/usage lines that start with spaces or tabs
+            if echo "$line" | grep -qE '^[[:space:]]+(--|;)'; then
+                continue
+            fi
             process_nfqws_log "$line"
         done
         
         EXIT_CODE=$?
-        log_warn "⚠️  nfqws2 exited with code $EXIT_CODE, restarting in 2 seconds..."
-        sleep 2
+        restart_count=$((restart_count+1))
+        
+        # If exits immediately multiple times, something is wrong
+        if [ $restart_count -gt 5 ]; then
+            log_error "❌ nfqws2 failed to start after 5 attempts"
+            log_error "Check configuration: $NFQWS2_OPT"
+            log_error "Waiting 30 seconds before retry..."
+            sleep 30
+            restart_count=0
+        else
+            log_warn "⚠️  nfqws2 exited (code $EXIT_CODE), restarting in 3 seconds..."
+            sleep 3
+        fi
     done
 }
 
@@ -351,22 +368,28 @@ if [ ! -x "/usr/local/bin/nfqws2" ]; then
     log_error "nfqws2 binary not found or not executable!"
     log_error "Container will run in SOCKS5-only mode (no DPI bypass)"
     NFQWS2_ENABLE="0"
+    SKIP_NFQWS=1
 else
-    log_info "✓ nfqws2 binary found"
+    log_info "✓ nfqws2 binary found at /usr/local/bin/nfqws2"
 fi
 
-# Start nfqws2 with auto-restart in background
-start_nfqws2 &
-NFQWS_PID=$!
-
-# Give nfqws2 a moment to start
-sleep 1
-
-# Check if nfqws2 is running
-if ps aux | grep -v grep | grep nfqws2 >/dev/null; then
-    log_info "✓ nfqws2 process started successfully"
+# Start nfqws2 only if enabled
+if [ "${SKIP_NFQWS}" != "1" ] && [ "${NFQWS2_ENABLE}" = "1" ]; then
+    start_nfqws2 &
+    NFQWS_PID=$!
+    
+    # Give nfqws2 a moment to start
+    sleep 2
+    
+    # Check if nfqws2 is running
+    if pgrep -f "nfqws2.*--qnum=$NFQUEUE_NUM" >/dev/null; then
+        log_info "✓ nfqws2 process is running"
+    else
+        log_warn "⚠️  nfqws2 may not be running properly (check logs)"
+    fi
 else
-    log_error "✗ nfqws2 failed to start"
+    log_warn "⚠️  nfqws2 disabled, running SOCKS5-only mode"
+    NFQWS_PID=""
 fi
 
 # Start web control panel
