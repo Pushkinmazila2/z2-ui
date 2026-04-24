@@ -9,16 +9,23 @@ import sys
 import json
 import base64
 import subprocess
+import threading
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 import hashlib
 import secrets
+from collections import deque
 
 # Configuration
 CONFIG_FILE = os.getenv('ZAPRET_CONFIG', '/opt/zapret2/config')
 STRATEGIES_FILE = os.path.join(os.path.dirname(__file__), 'strategies.json')
 AUTH_FILE = os.path.join(os.path.dirname(__file__), '.htpasswd')
 PORT = 8088
+
+# Log buffer (last 500 lines)
+log_buffer = deque(maxlen=500)
+log_lock = threading.Lock()
 
 # Default strategies
 DEFAULT_STRATEGIES = {
@@ -62,22 +69,41 @@ def get_current_strategy():
                 return line.split('=', 1)[1].strip().strip('"')
     return None
 
+def log_message(msg, level='INFO'):
+    """Log message to buffer and stdout"""
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+    log_line = f'[{timestamp}] [{level}] {msg}'
+    
+    with log_lock:
+        log_buffer.append(log_line)
+    
+    print(log_line, flush=True)
+
 def set_strategy(strategy_config):
     """Update config file with new strategy"""
+    log_message(f'Updating config file: {CONFIG_FILE}')
+    
     if not os.path.exists(CONFIG_FILE):
+        log_message(f'Config file not found: {CONFIG_FILE}', 'ERROR')
         return False
     
-    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
-    
-    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-        for line in lines:
-            if line.startswith('NFQWS2_OPT='):
-                f.write(f'NFQWS2_OPT="{strategy_config}"\n')
-            else:
-                f.write(line)
-    
-    return True
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            for line in lines:
+                if line.startswith('NFQWS2_OPT='):
+                    f.write(f'NFQWS2_OPT="{strategy_config}"\n')
+                    log_message('Strategy updated in config')
+                else:
+                    f.write(line)
+        
+        log_message('Config file saved successfully')
+        return True
+    except Exception as e:
+        log_message(f'Failed to update config: {str(e)}', 'ERROR')
+        return False
 
 def restart_service():
     """Restart zapret2 service (Docker mode)"""
@@ -125,6 +151,8 @@ class ZapretHandler(BaseHTTPRequestHandler):
             self.api_get_strategies()
         elif self.path == '/api/current':
             self.api_get_current()
+        elif self.path == '/api/logs':
+            self.api_get_logs()
         else:
             self.send_error(404)
     
@@ -193,6 +221,18 @@ class ZapretHandler(BaseHTTPRequestHandler):
         .form-group input, .form-group textarea { width: 100%; background: #0a0a0a; border: 1px solid #333; color: #e0e0e0; padding: 10px; border-radius: 4px; font-family: inherit; font-size: 14px; }
         .form-group textarea { min-height: 100px; font-family: 'Courier New', monospace; font-size: 12px; }
         .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .logs-panel { background: #0a0a0a; border-radius: 8px; padding: 15px; margin-top: 20px; max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; }
+        .logs-panel h3 { font-size: 16px; margin-bottom: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        .log-line { padding: 4px 0; border-bottom: 1px solid #1a1a1a; }
+        .log-line:last-child { border-bottom: none; }
+        .log-line.error { color: #f44336; }
+        .log-line.warn { color: #FFC107; }
+        .log-line.info { color: #4CAF50; }
+        .log-controls { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .log-controls button { background: #333; border: none; color: #fff; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .log-controls button:hover { background: #444; }
+        .log-controls .auto-scroll { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #999; }
+        .log-controls input[type=checkbox] { cursor: pointer; }
     </style>
 </head>
 <body>
@@ -211,6 +251,19 @@ class ZapretHandler(BaseHTTPRequestHandler):
         </div>
         
         <div class="message" id="message"></div>
+        
+        <div class="logs-panel">
+            <div class="log-controls">
+                <h3 style="margin: 0; flex: 1;">📋 Логи</h3>
+                <label class="auto-scroll">
+                    <input type="checkbox" id="autoScroll" checked>
+                    Авто-прокрутка
+                </label>
+                <button onclick="clearLogs()">Очистить</button>
+                <button onclick="refreshLogs()">Обновить</button>
+            </div>
+            <div id="logs"></div>
+        </div>
     </div>
     
     <div class="modal" id="addModal">
@@ -418,6 +471,58 @@ class ZapretHandler(BaseHTTPRequestHandler):
         }
         
         loadData();
+        
+        // Logs functionality
+        let autoScroll = true;
+        
+        async function refreshLogs() {
+            try {
+                const res = await fetch('/api/logs');
+                const data = await res.json();
+                const logsDiv = document.getElementById('logs');
+                
+                logsDiv.innerHTML = data.logs.map(line => {
+                    let className = 'log-line';
+                    if (line.includes('[ERROR]')) className += ' error';
+                    else if (line.includes('[WARN]')) className += ' warn';
+                    else if (line.includes('[INFO]')) className += ' info';
+                    return `<div class="${className}">${line}</div>`;
+                }).join('');
+                
+                if (autoScroll) {
+                    logsDiv.parentElement.scrollTop = logsDiv.parentElement.scrollHeight;
+                }
+            } catch (e) {
+                console.error('Failed to refresh logs:', e);
+            }
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '<div class="log-line">Логи очищены</div>';
+        }
+        
+        document.getElementById('autoScroll').addEventListener('change', (e) => {
+            autoScroll = e.target.checked;
+        });
+        
+        // Auto-refresh logs every 2 seconds
+        setInterval(refreshLogs, 2000);
+        refreshLogs();
+        
+        // Log to console
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            console.log('[FETCH]', args[0]);
+            return originalFetch.apply(this, args)
+                .then(response => {
+                    console.log('[RESPONSE]', args[0], response.status);
+                    return response;
+                })
+                .catch(error => {
+                    console.error('[FETCH ERROR]', args[0], error);
+                    throw error;
+                });
+        };
     </script>
 </body>
 </html>"""
@@ -435,10 +540,16 @@ class ZapretHandler(BaseHTTPRequestHandler):
         current = get_current_strategy()
         self.send_json({'config': current})
     
+    def api_get_logs(self):
+        with log_lock:
+            logs = list(log_buffer)
+        self.send_json({'logs': logs})
+    
     def api_apply_strategy(self):
         try:
             content_length = int(self.headers.get('Content-Length', 0))
             if content_length == 0:
+                log_message('Empty request received', 'WARN')
                 self.send_json({'success': False, 'message': 'Empty request'})
                 return
                 
@@ -446,21 +557,27 @@ class ZapretHandler(BaseHTTPRequestHandler):
             data = json.loads(post_data.decode('utf-8'))
             
             strategy_key = data.get('strategy')
+            log_message(f'Applying strategy: {strategy_key}')
+            
             strategies = load_strategies()
             
             if strategy_key not in strategies:
+                log_message(f'Strategy not found: {strategy_key}', 'ERROR')
                 self.send_json({'success': False, 'message': 'Стратегия не найдена'})
                 return
             
             strategy_config = strategies[strategy_key]['config']
+            log_message(f'Strategy config length: {len(strategy_config)} chars')
             
             if not set_strategy(strategy_config):
                 self.send_json({'success': False, 'message': 'Не удалось обновить конфиг'})
                 return
             
             success, message = restart_service()
+            log_message(f'Restart result: {message}')
             self.send_json({'success': success, 'message': message})
         except Exception as e:
+            log_message(f'Apply strategy error: {str(e)}', 'ERROR')
             self.send_json({'success': False, 'message': f'Error: {str(e)}'})
     
     def api_save_strategy(self):
@@ -474,12 +591,16 @@ class ZapretHandler(BaseHTTPRequestHandler):
             strategy_desc = data.get('description', '').strip()
             strategy_config = data.get('config', '').strip()
             
+            log_message(f'Saving strategy: {strategy_key}')
+            
             if not strategy_key or not strategy_name or not strategy_config:
+                log_message('Missing required fields', 'WARN')
                 self.send_json({'success': False, 'message': 'Заполните все поля'})
                 return
             
             # Validate key format
             if not strategy_key.replace('_', '').isalnum():
+                log_message(f'Invalid key format: {strategy_key}', 'WARN')
                 self.send_json({'success': False, 'message': 'Ключ может содержать только буквы, цифры и _'})
                 return
             
@@ -491,8 +612,10 @@ class ZapretHandler(BaseHTTPRequestHandler):
             }
             
             save_strategies(strategies)
+            log_message(f'Strategy saved: {strategy_key}')
             self.send_json({'success': True, 'message': 'Стратегия сохранена'})
         except Exception as e:
+            log_message(f'Save strategy error: {str(e)}', 'ERROR')
             self.send_json({'success': False, 'message': f'Error: {str(e)}'})
     
     def api_delete_strategy(self):
@@ -502,17 +625,22 @@ class ZapretHandler(BaseHTTPRequestHandler):
             data = json.loads(post_data.decode('utf-8'))
             
             strategy_key = data.get('key')
+            log_message(f'Deleting strategy: {strategy_key}')
+            
             strategies = load_strategies()
             
             if strategy_key not in strategies:
+                log_message(f'Strategy not found: {strategy_key}', 'WARN')
                 self.send_json({'success': False, 'message': 'Стратегия не найдена'})
                 return
             
             del strategies[strategy_key]
             save_strategies(strategies)
+            log_message(f'Strategy deleted: {strategy_key}')
             self.send_json({'success': True, 'message': 'Стратегия удалена'})
         except Exception as e:
-            self.send_json({'success': False, 'message': f'Error: {str(e)}'})
+            log_message(f'Delete strategy error: {str(e)}', 'ERROR')
+            self.send_json({'success': False, 'message': f'Error: {str(e)}'}
     
     def send_json(self, data):
         self.send_response(200)
@@ -531,28 +659,49 @@ def create_default_auth():
         password_hash = hashlib.sha256(default_password.encode()).hexdigest()
         with open(AUTH_FILE, 'w') as f:
             f.write(f'admin:{password_hash}\n')
-        print(f"Created default auth file: admin / {default_password}")
-        print(f"Change password in: {AUTH_FILE}")
+        log_message(f'Created default auth: admin / {default_password}')
+        log_message(f'Change password using: python3 /opt/zapret2/web/change_password.py')
+    else:
+        log_message('Auth file exists')
 
 def main():
     # Ensure web directory exists
     os.makedirs(os.path.dirname(os.path.abspath(__file__)), exist_ok=True)
     
+    log_message('Starting Zapret Web Control Panel')
+    log_message(f'Config file: {CONFIG_FILE}')
+    log_message(f'Strategies file: {STRATEGIES_FILE}')
+    
     # Create default strategies file
     if not os.path.exists(STRATEGIES_FILE):
+        log_message('Creating default strategies file')
         save_strategies(DEFAULT_STRATEGIES)
+    else:
+        log_message('Strategies file exists')
     
     # Create default auth
     create_default_auth()
     
+    # Check config file
+    if os.path.exists(CONFIG_FILE):
+        log_message(f'Config file found: {CONFIG_FILE}')
+        # Check if writable
+        if os.access(CONFIG_FILE, os.W_OK):
+            log_message('Config file is writable')
+        else:
+            log_message('WARNING: Config file is READ-ONLY! Mount with :rw flag', 'WARN')
+    else:
+        log_message(f'WARNING: Config file not found: {CONFIG_FILE}', 'WARN')
+    
     server = HTTPServer(('0.0.0.0', PORT), ZapretHandler)
-    print(f"Zapret Control Panel running on http://0.0.0.0:{PORT}")
-    print(f"Default credentials: admin / zapret")
+    log_message(f'Web UI started on http://0.0.0.0:{PORT}')
+    log_message('Default credentials: admin / zapret')
+    log_message('Ready to accept connections')
     
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nShutting down...")
+        log_message('Shutting down...')
         server.shutdown()
 
 if __name__ == '__main__':
