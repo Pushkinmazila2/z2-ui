@@ -304,6 +304,17 @@ if [ -z "$NFQWS2_OPT" ]; then
     log_info "📝 Configure better strategy via Web UI: http://localhost:8088"
 fi
 
+# Check if lua files exist
+if [ ! -f "/opt/zapret2/lua/zapret-lib.lua" ]; then
+    log_error "Missing lua file: /opt/zapret2/lua/zapret-lib.lua"
+    SKIP_NFQWS=1
+fi
+
+if [ ! -f "/opt/zapret2/lua/zapret-antidpi.lua" ]; then
+    log_error "Missing lua file: /opt/zapret2/lua/zapret-antidpi.lua"
+    SKIP_NFQWS=1
+fi
+
 # Prepare nfqws2 options (base + strategy from config)
 # Add --queue-bypass to prevent blocking if nfqws2 fails
 NFQWS_OPTS="--qnum=$NFQUEUE_NUM --queue-bypass --lua-init=@/opt/zapret2/lua/zapret-lib.lua --lua-init=@/opt/zapret2/lua/zapret-antidpi.lua $NFQWS2_OPT"
@@ -329,36 +340,55 @@ SOCKS_PID=$!
 # Function to start nfqws2 with auto-restart
 start_nfqws2() {
     local restart_count=0
+    local start_time=0
+    
     while true; do
+        start_time=$(date +%s)
         log_info "Starting nfqws2 on queue $NFQUEUE_NUM (attempt $((restart_count+1)))"
-        log_info "Strategy: ${NFQWS2_OPT:0:100}..."
         
-        if [ "$LOG_LEVEL" = "debug" ]; then
-            log_debug "Command: /usr/local/bin/nfqws2 $NFQWS_OPTS"
+        if [ $restart_count -eq 0 ]; then
+            log_info "Strategy: $NFQWS2_OPT"
+            log_info "Full command: /usr/local/bin/nfqws2 $NFQWS_OPTS"
         fi
         
-        # Run nfqws2 and filter out help text
-        /usr/local/bin/nfqws2 $NFQWS_OPTS 2>&1 | while IFS= read -r line; do
-            # Skip help/usage lines that start with spaces or tabs
-            if echo "$line" | grep -qE '^[[:space:]]+(--|;)'; then
-                continue
-            fi
-            process_nfqws_log "$line"
-        done
+        # Capture both stdout and stderr, show all output on first attempt
+        if [ $restart_count -eq 0 ]; then
+            /usr/local/bin/nfqws2 $NFQWS_OPTS 2>&1 | tee /tmp/nfqws2_output.log | while IFS= read -r line; do
+                log_info "NFQWS2: $line"
+            done
+        else
+            /usr/local/bin/nfqws2 $NFQWS_OPTS 2>&1 | while IFS= read -r line; do
+                # Skip help lines
+                if echo "$line" | grep -qE '^[[:space:]]+(--|;)'; then
+                    continue
+                fi
+                process_nfqws_log "$line"
+            done
+        fi
         
         EXIT_CODE=$?
-        restart_count=$((restart_count+1))
+        local run_time=$(($(date +%s) - start_time))
         
-        # If exits immediately multiple times, something is wrong
-        if [ $restart_count -gt 5 ]; then
-            log_error "❌ nfqws2 failed to start after 5 attempts"
-            log_error "Check configuration: $NFQWS2_OPT"
-            log_error "Waiting 30 seconds before retry..."
-            sleep 30
-            restart_count=0
+        # If ran for less than 5 seconds, it's a startup failure
+        if [ $run_time -lt 5 ]; then
+            restart_count=$((restart_count+1))
+            log_error "❌ nfqws2 exited too quickly (${run_time}s, code $EXIT_CODE)"
+            
+            if [ $restart_count -ge 3 ]; then
+                log_error "Multiple startup failures detected!"
+                log_error "Last output saved to /tmp/nfqws2_output.log"
+                log_error "Configuration: $NFQWS2_OPT"
+                log_error "Waiting 30 seconds before retry..."
+                sleep 30
+                restart_count=0
+            else
+                sleep 2
+            fi
         else
-            log_warn "⚠️  nfqws2 exited (code $EXIT_CODE), restarting in 3 seconds..."
-            sleep 3
+            # Ran successfully for a while, reset counter
+            restart_count=0
+            log_warn "⚠️  nfqws2 exited after ${run_time}s (code $EXIT_CODE), restarting..."
+            sleep 2
         fi
     done
 }
@@ -371,6 +401,14 @@ if [ ! -x "/usr/local/bin/nfqws2" ]; then
     SKIP_NFQWS=1
 else
     log_info "✓ nfqws2 binary found at /usr/local/bin/nfqws2"
+    
+    # Test if nfqws2 can run at all (without actual packet processing)
+    log_info "Testing nfqws2 with minimal config..."
+    if timeout 2 /usr/local/bin/nfqws2 --qnum=999 --queue-bypass 2>&1 | head -5 | grep -qE "(queue|nfqws|listening)"; then
+        log_info "✓ nfqws2 test passed"
+    else
+        log_warn "⚠️  nfqws2 test inconclusive (may still work)"
+    fi
 fi
 
 # Start nfqws2 only if enabled
