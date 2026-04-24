@@ -640,7 +640,7 @@ class ZapretHandler(BaseHTTPRequestHandler):
             self.send_json({'success': True, 'message': 'Стратегия удалена'})
         except Exception as e:
             log_message(f'Delete strategy error: {str(e)}', 'ERROR')
-            self.send_json({'success': False, 'message': f'Error: {str(e)}'}
+            self.send_json({'success': False, 'message': f'Error: {str(e)}'})
     
     def send_json(self, data):
         self.send_response(200)
