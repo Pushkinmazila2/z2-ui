@@ -31,17 +31,9 @@ RUN apk add --no-cache \
 WORKDIR /build
 COPY . .
 
-# nfqws2
-WORKDIR /build/nfq2
-RUN make clean && make nfqws2
-
-# ip2net
-WORKDIR /build/ip2net
-RUN make clean && make ip2net
-
-# mdig (опционально)
-WORKDIR /build/mdig
-RUN if [ -f Makefile ]; then make clean && make mdig 2>/dev/null || true; fi
+# Сборка всех бинарей через корневой Makefile
+# Результат попадает в binaries/my/
+RUN make
 
 # --------------- Stage 2: runtime ---------------
 FROM alpine:3.19
@@ -61,11 +53,10 @@ RUN apk add --no-cache \
     libcap-utils \
     procps
 
-# Бинари из сборки
-COPY --from=builder /build/nfq2/nfqws2       /usr/local/bin/nfqws2
-COPY --from=builder /build/ip2net/ip2net      /usr/local/bin/ip2net
-# mdig опционален — если не собрался файл просто не скопируется
-COPY --from=builder /build/mdig/mdig*         /usr/local/bin/
+# Бинари из сборки — корневой Makefile кладёт их в binaries/my/
+COPY --from=builder /build/binaries/my/nfqws2  /usr/local/bin/nfqws2
+COPY --from=builder /build/binaries/my/ip2net  /usr/local/bin/ip2net
+COPY --from=builder /build/binaries/my/mdig    /usr/local/bin/mdig
 
 # Lua скрипты и конфиги
 COPY lua/            /opt/zapret2/lua/
