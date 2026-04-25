@@ -72,8 +72,6 @@ COPY lua/            /opt/zapret2/lua/
 COPY ipset/          /opt/zapret2/ipset/
 COPY files/          /opt/zapret2/files/
 COPY common/         /opt/zapret2/common/
-COPY config.default  /opt/zapret2/config.default
-
 RUN mkdir -p /opt/zapret2/tmp /opt/zapret2/lists /var/log/zapret2
 
 # Скрипт запуска

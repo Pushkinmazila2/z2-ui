@@ -1,8 +1,8 @@
-version: "3.8"
-
 services:
   zapret2:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: zapret2
     restart: unless-stopped
 
@@ -35,7 +35,7 @@ services:
 
     volumes:
       # Пользовательский конфиг (опционально)
-      - ./config:/opt/zapret2/config:ro
+      # - ./config:/opt/zapret2/config:ro
 
       # Кастомные хостлисты (опционально)
       # - ./lists:/opt/zapret2/lists:ro
