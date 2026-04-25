@@ -1,3 +1,0 @@
-NFQWS2_ENABLE=1
-NFQWS2_OPT="--filter-tcp=443 --dpi-desync=fake,split2 --dpi-desync-split-pos=sniext+1 --dpi-desync-repeats=6 --dpi-desync-fake-tls=0x00000000"
-MODE_FILTER=none

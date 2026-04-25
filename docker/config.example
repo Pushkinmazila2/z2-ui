@@ -1,0 +1,32 @@
+# =============================================================================
+# zapret2 конфиг — монтируется как /opt/zapret2/config
+# Если файл отсутствует — используются defaults из entrypoint.sh
+# =============================================================================
+
+# Порт SOCKS5 прокси
+SOCKS5_PORT=1080
+
+# Номер NFQUEUE очереди (менять только при конфликтах с другими процессами)
+NFQUEUE_NUM=200
+
+# Уровень логов: info | debug
+LOG_LEVEL=info
+
+# ── Стратегия DPI-обхода ──────────────────────────────────────────────────────
+# 0 = использовать стратегию по умолчанию (multidisorder для tcp 80,443)
+# 1 = использовать кастомную стратегию из NFQWS2_OPT
+NFQWS2_ENABLE=0
+
+# Кастомная стратегия (работает только если NFQWS2_ENABLE=1)
+# Примеры:
+#
+# Простой fake + multidisorder:
+# NFQWS2_OPT="--filter-tcp=443 --filter-l7=tls --lua-desync=fake:blob=fake_default_tls:tcp_md5 --lua-desync=multidisorder:pos=midsld"
+#
+# С autottl:
+# NFQWS2_OPT="--filter-tcp=443 --filter-l7=tls --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:ip_autottl=-2,3-20:tcp_md5 --lua-desync=multidisorder:pos=midsld"
+#
+# QUIC + TLS:
+# NFQWS2_OPT="--filter-tcp=443 --filter-l7=tls --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5 --lua-desync=multidisorder:pos=midsld --new --filter-udp=443 --filter-l7=quic --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=5"
+#
+NFQWS2_OPT="--lua-desync=wssize:wsize=1:scale=6 --payload=tls_client_hello --lua-desync=multidisorder:pos=2:seqovl=1"

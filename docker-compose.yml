@@ -1,79 +1,49 @@
+version: "3.8"
+
 services:
   zapret2:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: ${CONTAINER_NAME:-zapret2-proxy}
-    restart: ${RESTART_POLICY:-unless-stopped}
-    
-    # Required capabilities for iptables and network manipulation
+    build: .
+    container_name: zapret2
+    restart: unless-stopped
+
+    # Минимально необходимые capabilities для iptables внутри контейнера.
+    # Хостовая сеть НЕ используется — bridge по умолчанию.
     cap_add:
       - NET_ADMIN
       - NET_RAW
-    
-    # System controls for IP forwarding
+
     sysctls:
-      - net.ipv4.ip_forward=1
-      - net.ipv4.conf.all.route_localnet=1
-    
-    # Network mode
-    network_mode: ${NETWORK_MODE:-bridge}
-    
+      # Нужно для conntrack внутри контейнера
+      net.netfilter.nf_conntrack_max: 262144
+
     ports:
-      - "${SOCKS5_PORT:-1080}:${SOCKS5_PORT:-1080}"  # SOCKS5 port
-      - "${WEB_PORT:-8088}:8088"  # Web Control Panel
-    
+      - "1080:1080"   # SOCKS5
+
     environment:
-      # SOCKS5 configuration
-      - SOCKS5_PORT=${SOCKS5_PORT:-1080}
-      - SOCKS5_USER=${SOCKS5_USER}
-      - SOCKS5_PASS=${SOCKS5_PASS}
-      
-      # NFQUEUE configuration
-      - NFQUEUE_NUM=${NFQUEUE_NUM:-200}
-      - DESYNC_MARK=${DESYNC_MARK:-0x40000000}
-      
-      # zapret2 configuration
-      - NFQWS2_ENABLE=${NFQWS2_ENABLE:-1}
-      - DISABLE_IPV6=${DISABLE_IPV6:-1}
-      - NFQWS2_PORTS_TCP=${NFQWS2_PORTS_TCP:-80,443}
-      - NFQWS2_PORTS_UDP=${NFQWS2_PORTS_UDP:-443}
-      - NFQWS2_OPT=${NFQWS2_OPT}
-      - MODE_FILTER=${MODE_FILTER:-none}
-      
-      # Logging
-      - LOG_LEVEL=${LOG_LEVEL:-debug}
-      - CURL_VERBOSE=${CURL_VERBOSE:-0}
-      
-      # User/Group
-      - WS_UID=${WS_UID:-1}
-      - WS_GID=${WS_GID:-3003}
-      
-      # Custom zapret config path
-      - ZAPRET_CONFIG=${ZAPRET_CONFIG:-/opt/zapret2/config}
-      - ZAPRET_BASE=${ZAPRET_BASE:-/opt/zapret2}
-    
+      # Уровень логов: info | debug
+      LOG_LEVEL: info
+
+      # Номер NFQUEUE (менять не нужно если нет конфликтов)
+      NFQUEUE_NUM: 200
+
+      # Путь к пользовательскому конфигу (монтируется через volume)
+      ZAPRET_CONFIG: /opt/zapret2/config
+
+      # Раскомментировать для кастомной стратегии:
+      # NFQWS2_ENABLE: "1"
+      # NFQWS2_OPT: "--filter-tcp=443 --filter-l7=tls --lua-desync=fake:blob=fake_default_tls:tcp_md5"
+
     volumes:
-      # Mount config file (optional, will be created if missing) - writable for web UI
-      - ./config:/opt/zapret2/config:rw
-      
-      # Mount custom hostlists (optional)
-      - ${LISTS_PATH:-./lists}:/opt/zapret2/lists:ro
-      
-      # Mount custom lua scripts (optional)
-      - ${LUA_PATH:-./custom-lua}:/opt/zapret2/custom-lua:ro
-      
-      # Logs
-      - ${LOGS_PATH:-./logs}:/var/log/zapret2
-    
-    # Healthcheck
-    healthcheck:
-      test: ["CMD", "curl --proxy socks5h://127.0.0.1:${SOCKS5_PORT:-1080} https://google.com -v || exit 1"]
-      interval: ${HEALTHCHECK_INTERVAL:-30}s
-      timeout: ${HEALTHCHECK_TIMEOUT:-10}s
-      retries: ${HEALTHCHECK_RETRIES:-3}
-      start_period: ${HEALTHCHECK_START_PERIOD:-10}s
+      # Пользовательский конфиг (опционально)
+      # - ./config:/opt/zapret2/config:ro
+
+      # Кастомные хостлисты (опционально)
+      # - ./lists:/opt/zapret2/lists:ro
+
+    # Изолируем от хоста: своя сеть bridge, не host
+    networks:
+      - zapret2_net
 
 networks:
-  default:
+  zapret2_net:
     driver: bridge

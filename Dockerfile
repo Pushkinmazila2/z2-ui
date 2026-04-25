@@ -1,11 +1,24 @@
-# Multi-stage build for zapret2 with SOCKS5 proxy support
+# =============================================================================
+# zapret2 — isolated Docker container with SOCKS5 proxy
+#
+# Архитектура:
+#   - nfqws2 перехватывает трафик ВНУТРИ контейнера через network namespace
+#   - iptables правила применяются только к namespace контейнера
+#   - Хостовая сеть не затрагивается вообще
+#   - Dante слушает SOCKS5 и запускает соединения от имени пользователя proxyuser
+#   - iptables внутри контейнера шлёт трафик proxyuser через NFQUEUE → nfqws2
+#
+# Требования к запуску:
+#   docker run --cap-add NET_ADMIN --cap-add NET_RAW \
+#              --sysctl net.netfilter.nf_conntrack_max=262144 \
+#              -p 1080:1080 zapret2
+# =============================================================================
+
+# --------------- Stage 1: build ---------------
 FROM alpine:3.19 AS builder
 
-# Install build dependencies
 RUN apk add --no-cache \
-    gcc \
-    g++ \
-    make \
+    gcc g++ make \
     linux-headers \
     libnetfilter_queue-dev \
     libnfnetlink-dev \
@@ -13,99 +26,65 @@ RUN apk add --no-cache \
     zlib-dev \
     luajit-dev \
     pkgconfig \
-    bsd-compat-headers \
-    libcap-dev \
-    libevent-dev \
-    openssl-dev
+    bsd-compat-headers
 
-# Copy source code
 WORKDIR /build
 COPY . .
 
-# Build nfqws2
+# nfqws2
 WORKDIR /build/nfq2
 RUN make clean && make nfqws2
 
-# Build ip2net
+# ip2net
 WORKDIR /build/ip2net
 RUN make clean && make ip2net
 
-# Build mdig if exists
+# mdig (опционально)
 WORKDIR /build/mdig
-RUN if [ -f Makefile ]; then make clean && make; fi || true
+RUN if [ -f Makefile ]; then make clean && make mdig 2>/dev/null || true; fi
 
-# Final stage
+# --------------- Stage 2: runtime ---------------
 FROM alpine:3.19
 
-# Install runtime dependencies
 RUN apk add --no-cache \
     iptables \
-    ip6tables \
     ipset \
     libnetfilter_queue \
     libnfnetlink \
     libmnl \
     zlib \
     luajit \
-    curl \
     bash \
     dante-server \
     iproute2 \
     ca-certificates \
-    libcap \
-    bind-tools \
-    nmap-ncat \
-    coreutils \
-    grep \
-    sed \
-    python3 \
-    py3-pip
+    libcap-utils \
+    procps
 
-# Copy compiled binaries
-COPY --from=builder /build/nfq2/nfqws2 /usr/local/bin/
-COPY --from=builder /build/ip2net/ip2net /usr/local/bin/
-# Использование маски * предотвращает ошибку, если mdig не скомпилировался
-COPY --from=builder /build/mdig/mdig* /usr/local/bin/
+# Бинари из сборки
+COPY --from=builder /build/nfq2/nfqws2       /usr/local/bin/nfqws2
+COPY --from=builder /build/ip2net/ip2net      /usr/local/bin/ip2net
+# mdig опционален — если не собрался файл просто не скопируется
+COPY --from=builder /build/mdig/mdig*         /usr/local/bin/
 
-# Create symlinks for blockcheck2 compatibility
-RUN mkdir -p /opt/zapret2/nfq2 /opt/zapret2/mdig /opt/zapret2/ip2net && \
-    ln -s /usr/local/bin/nfqws2 /opt/zapret2/nfq2/nfqws2 && \
-    ln -s /usr/local/bin/ip2net /opt/zapret2/ip2net/ip2net && \
-    ln -s /usr/local/bin/mdig /opt/zapret2/mdig/mdig 2>/dev/null || true
+# Lua скрипты и конфиги
+COPY lua/            /opt/zapret2/lua/
+COPY ipset/          /opt/zapret2/ipset/
+COPY files/          /opt/zapret2/files/
+COPY common/         /opt/zapret2/common/
+COPY config.default  /opt/zapret2/config.default
 
-# Copy lua scripts and configs
-COPY lua/ /opt/zapret2/lua/
-COPY ipset/ /opt/zapret2/ipset/
-COPY files/ /opt/zapret2/files/
-COPY common/ /opt/zapret2/common/
-COPY blockcheck2.d/ /opt/zapret2/blockcheck2.d/
-COPY blockcheck2.sh /opt/zapret2/
-COPY blockcheck2-progress.sh /opt/zapret2/
+RUN mkdir -p /opt/zapret2/tmp /opt/zapret2/lists /var/log/zapret2
 
-# Copy web panel
-COPY web/ /opt/zapret2/web/
-RUN chmod +x /opt/zapret2/web/server.py /opt/zapret2/web/change_password.py
-
-# Make scripts executable
-RUN chmod +x /opt/zapret2/blockcheck2.sh /opt/zapret2/blockcheck2-progress.sh
-
-# Create necessary directories
-RUN mkdir -p /opt/zapret2/tmp \
-    /opt/zapret2/lists \
-    /var/log/zapret2
-
-# Copy entrypoint script
+# Скрипт запуска
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Expose SOCKS5 and Web UI ports
-EXPOSE 1080 8088
+EXPOSE 1080
 
-# Set working directory
 WORKDIR /opt/zapret2
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD netstat -tuln | grep -q ':1080' || exit 1
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD ss -tlnp | grep -q ':1080' || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
