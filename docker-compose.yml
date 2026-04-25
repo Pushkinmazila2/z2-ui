@@ -33,7 +33,7 @@ services:
       # NFQWS2_ENABLE: "1"
       # NFQWS2_OPT: "--filter-tcp=443 --filter-l7=tls --lua-desync=fake:blob=fake_default_tls:tcp_md5"
 
-    volumes:
+    #volumes:
       # Пользовательский конфиг (опционально)
       # - ./config:/opt/zapret2/config:ro
 
