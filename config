@@ -1,5 +1,2 @@
-SOCKS5_PORT=1080
-NFQUEUE_NUM=200
-LOG_LEVEL=debug
 NFQWS2_ENABLE=1
 NFQWS2_OPT="--lua-desync=wssize:wsize=1:scale=6 --payload=tls_client_hello --lua-desync=multidisorder:pos=2:seqovl=1"
