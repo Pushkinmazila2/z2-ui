@@ -35,7 +35,7 @@ services:
 
     volumes:
       # Пользовательский конфиг (опционально)
-      # - ./config:/opt/zapret2/config:ro
+      - ./config:/opt/zapret2/config:ro
 
       # Кастомные хостлисты (опционально)
       # - ./lists:/opt/zapret2/lists:ro
