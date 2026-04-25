@@ -103,11 +103,11 @@ setup_iptables() {
 write_sockd_conf() {
     # Берём IP контейнера (не хардкодим eth0 — может быть другой интерфейс)
     local ext_ip
-    ext_ip=$(ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K[\d.]+' | head -1)
+    ext_ip=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '/src/{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
 
     if [[ -z "$ext_ip" ]]; then
         # Fallback: первый не-loopback IP
-        ext_ip=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '^127\.' | head -1)
+        ext_ip=$(ip -4 addr show | awk '/inet /{gsub(/\/.*/, "", $2); print $2}' | grep -v '^127\.' | head -1)
     fi
 
     log_info "External IP for Dante: $ext_ip"
